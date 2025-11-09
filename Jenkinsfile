@@ -31,8 +31,9 @@ pipeline {
         
         stage('Deploy') {
             steps {
-                echo 'Starting containers...'
-                sh 'docker-compose down || true'
+                echo 'Cleaning old containers...'
+                sh 'docker-compose down -v || true'
+       	        sh 'docker rm -f bookmate-mysql bookmate-backend bookmate-frontend || true'				           
                 echo 'Starting new containers...'
                 sh 'docker-compose up -d'
             }
