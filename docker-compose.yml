@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: bookmate-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: bookmate_db
+      MYSQL_USER: bookmate
+      MYSQL_PASSWORD: bookmate123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - bookmate-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./bookmate-backend
+      dockerfile: Dockerfile
+    container_name: bookmate-backend
+    ports:
+      - "8081:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bookmate_db
+      SPRING_DATASOURCE_USERNAME: bookmate
+      SPRING_DATASOURCE_PASSWORD: bookmate123
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - bookmate-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./bookmate-frontend
+      dockerfile: Dockerfile.dev
+    container_name: bookmate-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./bookmate-frontend/src:/app/src
+      - ./bookmate-frontend/public:/app/public
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - REACT_APP_API_URL=http://localhost:8081
+    depends_on:
+      - backend
+    networks:
+      - bookmate-network
+    stdin_open: true
+    tty: true
+
+volumes:
+  mysql-data:
+
+networks:
+  bookmate-network:
+    driver: bridge
