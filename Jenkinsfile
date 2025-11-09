@@ -32,6 +32,8 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo 'Starting containers...'
+                sh 'docker-compose down || true'
+                echo 'Starting new containers...'
                 sh 'docker-compose up -d'
             }
         }
