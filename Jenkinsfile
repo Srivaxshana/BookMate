@@ -51,13 +51,11 @@
 // }
 
 
-
 pipeline {
     agent any
 
     tools {
         maven 'Maven'
-        nodejs 'NodeJS'   // assumes NodeJS is configured in Jenkins tools
     }
 
     stages {
