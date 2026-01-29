@@ -1,10 +1,8 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'Maven' 
-        jdk 'JDK-21'
-    }
+    // Tools are intentionally omitted to avoid relying on global Jenkins tool names.
+    // Use the bundled Maven wrapper in the repository (`mvnw`) instead.
 
     environment {
         DOCKER_REGISTRY = 'docker.io'  // Change to your registry (e.g., your-registry.azurecr.io)
@@ -32,7 +30,7 @@ pipeline {
             steps {
                 echo '========== Running Backend Unit Tests =========='
                 dir('bookmate-backend') {
-                    sh 'mvn clean test'
+                    sh './mvnw clean test'
                 }
             }
         }
@@ -41,7 +39,7 @@ pipeline {
             steps {
                 echo '========== Building Spring Boot Application =========='
                 dir('bookmate-backend') {
-                    sh 'mvn clean package -DskipTests'
+                    sh './mvnw clean package -DskipTests'
                 }
             }
         }
@@ -66,7 +64,7 @@ pipeline {
                 echo '========== Running Code Quality Analysis =========='
                 dir('bookmate-backend') {
                     sh '''
-                        mvn sonar:sonar \
+                        ./mvnw sonar:sonar \
                             -Dsonar.projectKey=bookmate \
                             -Dsonar.sources=src/main \
                             -Dsonar.tests=src/test \
@@ -189,21 +187,31 @@ pipeline {
         unstable {
             echo '⚠ Build is unstable!'
         }
-        always {
+            always {
             echo '========== Cleaning Up =========='
             script {
                 sh '''
                     # Cleanup old images (keep last 5)
                     docker image prune -f --filter "until=72h" || true
                 '''
+
+                // Archive test results and publish HTML report safely
+                try {
+                    junit '**/target/surefire-reports/*.xml'
+                } catch (e) {
+                    echo "junit archiving failed: ${e}"
+                }
+
+                try {
+                    publishHTML([
+                        reportDir: 'bookmate-backend/target/site/jacoco',
+                        reportFiles: 'index.html',
+                        reportName: 'Code Coverage Report'
+                    ])
+                } catch (e) {
+                    echo "publishHTML failed: ${e}"
+                }
             }
-            // Archive test results
-            junit '**/target/surefire-reports/*.xml' || true
-            publishHTML([
-                reportDir: 'bookmate-backend/target/site/jacoco',
-                reportFiles: 'index.html',
-                reportName: 'Code Coverage Report'
-            ]) || true
         }
     }
 }
