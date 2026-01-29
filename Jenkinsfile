@@ -155,33 +155,45 @@
 pipeline {
     agent any
 
-    environment {
-        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+    tools {
+        maven 'Maven'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/Srivaxshana/BookMate.git'
+                echo 'Checking out from GitHub...'
+                checkout scm
             }
         }
 
         stage('Terraform Apply') {
             steps {
                 dir('terraform') {
-                    sh 'terraform init'
-                    sh 'terraform apply -auto-approve'
+                    withCredentials([[$class: 'UsernamePasswordMultiBinding',
+                        credentialsId: 'aws-creds-id',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh '''
+                            echo "Provisioning infrastructure with Terraform..."
+                            terraform init
+                            terraform apply -auto-approve
+                        '''
+                    }
                 }
             }
         }
 
         stage('Output EC2 Public IP') {
             steps {
+                echo 'Fetching EC2 public IP...'
                 dir('terraform') {
                     script {
-                        def PUBLIC_IP = sh(script: "terraform output -raw public_ip", returnStdout: true).trim()
-                        echo "EC2 instance is running at: http://${PUBLIC_IP}"
+                        def ec2_ip = sh(
+                            script: "terraform output -raw public_ip",
+                            returnStdout: true
+                        ).trim()
+                        echo "EC2 instance is running at: http://${ec2_ip}"
                     }
                 }
             }
@@ -189,57 +201,53 @@ pipeline {
 
         stage('Build Backend') {
             steps {
+                echo 'Building Spring Boot application...'
                 dir('bookmate-backend') {
                     sh 'mvn clean package -DskipTests'
                 }
             }
         }
 
-        stage('Build Frontend Docker Image') {
-            steps {
-                dir('bookmate-frontend') {
-                    sh 'docker build -t bookmate-frontend .'
-                }
-            }
-        }
-
         stage('Build Backend Docker Image') {
             steps {
+                echo 'Packaging backend into Docker image...'
                 dir('bookmate-backend') {
                     sh 'docker build -t bookmate-backend .'
                 }
             }
         }
 
-        stage('Deploy Frontend') {
+        stage('Build Frontend Docker Image') {
             steps {
-                script {
-                    sh '''
-                    docker rm -f bookmate-frontend || true
-                    docker run -d -p 3000:80 --name bookmate-frontend bookmate-frontend
-                    '''
+                echo 'Packaging frontend into Docker image...'
+                dir('bookmate-frontend') {
+                    sh 'docker build -t bookmate-frontend .'
                 }
             }
         }
 
-        stage('Deploy Backend') {
+        stage('Deploy Containers') {
             steps {
-                script {
-                    sh '''
-                    docker rm -f bookmate-backend || true
-                    docker run -d -p 8080:8080 --name bookmate-backend bookmate-backend
-                    '''
-                }
+                echo 'Cleaning old containers...'
+                sh '''
+                    docker rm -f bookmate-mysql bookmate-backend bookmate-frontend nginx || true
+                '''
+                echo 'Starting new containers...'
+                sh '''
+                    docker run -d --name bookmate-backend -p 8080:8080 bookmate-backend
+                    docker run -d --name bookmate-frontend -p 3000:80 bookmate-frontend
+                    # MySQL and Nginx can be added here if you have Dockerfiles/docker-compose for them
+                '''
             }
         }
     }
 
     post {
-        failure {
-            echo "Pipeline failed!"
-        }
         success {
-            echo "Pipeline completed successfully!"
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
         }
     }
 }
