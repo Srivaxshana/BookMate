@@ -19,6 +19,6 @@ variable "key_name" {
 variable "ssh_cidr" {
   description = "CIDR block allowed to SSH (22)"
   type        = string
-  default     = "203.0.113.25/32"
+  default     = "0.0.0.0/0"
 
 }

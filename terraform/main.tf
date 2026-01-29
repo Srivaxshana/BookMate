@@ -8,7 +8,7 @@ data "aws_ami" "ubuntu" {
 }
 
 resource "aws_security_group" "bookmate_sg" {
-  name        = "bookmate-sg"
+  name_prefix        = "bookmate-sg"
   description = "Security group for BookMate EC2 instance"
 
   ingress {
