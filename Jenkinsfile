@@ -67,15 +67,17 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                withCredentials([[$class: 'UsernamePasswordMultiBinding',
-                                  credentialsId: 'aws-creds-id',
-                                  usernameVariable: 'AWS_ACCESS_KEY_ID',
-                                  passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        echo "Provisioning infrastructure with Terraform..."
-                        terraform init
-                        terraform apply -auto-approve
-                    '''
+                dir('terraform') {
+                    withCredentials([[$class: 'UsernamePasswordMultiBinding',
+                                    credentialsId: 'aws-creds-id',
+                                    usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                    passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh '''
+                            echo "Provisioning infrastructure with Terraform..."
+                            terraform init
+                            terraform apply -auto-approve
+                        '''
+                    }
                 }
             }
         }
