@@ -204,3 +204,7 @@ pipeline {
                 reportFiles: 'index.html',
                 reportName: 'Code Coverage Report'
             ]) || true
+        }
+    }
+}
+
