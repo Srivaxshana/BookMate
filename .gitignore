@@ -1,0 +1,62 @@
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+
+# Build & Dependencies
+target/
+build/
+dist/
+node_modules/
+*.jar
+*.class
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Frontend
+bookmate-frontend/build/
+bookmate-frontend/.cache/
+bookmate-frontend/coverage/
+
+# Maven
+bookmate-backend/.mvn/
+bookmate-backend/.m2/
+
+# Database
+mysql-data/
+*.sql.bak
+
+# Docker
+.docker/
+.dockerignore
+
+# Jenkins
+.jenkins/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Git
+.git/
+.gitkeep
