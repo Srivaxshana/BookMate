@@ -230,11 +230,14 @@ pipeline {
             steps {
                 echo 'Cleaning old containers...'
                 sh '''
-                    docker rm -f bookmate-mysql bookmate-backend bookmate-frontend nginx || true
+                    docker rm -f bookmate-mysql || true
+                    docker rm -f bookmate-backend || true 
+                    docker rm -f bookmate-frontend || true
+                    docker rm -f nginx || true
                 '''
                 echo 'Starting new containers...'
                 sh '''
-                    docker run -d --name bookmate-backend -p 8080:8080 bookmate-backend
+                    docker run -d --name bookmate-backend -p 8081:8080 bookmate-backend
                     docker run -d --name bookmate-frontend -p 3000:80 bookmate-frontend
                     # MySQL and Nginx can be added here if you have Dockerfiles/docker-compose for them
                 '''
