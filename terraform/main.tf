@@ -38,8 +38,8 @@ resource "aws_security_group" "bookmate_sg" {
 
   ingress {
     description = "Spring Boot Backend"
-    from_port   = 8080
-    to_port     = 8080
+    from_port   = 8081
+    to_port     = 8081
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -49,7 +49,7 @@ resource "aws_security_group" "bookmate_sg" {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["172.31.0.0/16"]
   }
 
   egress {
@@ -66,9 +66,10 @@ resource "aws_security_group" "bookmate_sg" {
 
 resource "aws_instance" "bookmate" {
   ami                    = data.aws_ami.ubuntu.id
-  instance_type          = var.instance_type
+  instance_type          = "t3.micro"
+  associate_public_ip_address = true
   vpc_security_group_ids = [aws_security_group.bookmate_sg.id]
-  key_name               = var.key_name != "" ? var.key_name : null
+  key_name               = var.key_name
 
   tags = {
     Name = "BookMate-App"
@@ -84,4 +85,13 @@ resource "aws_instance" "bookmate" {
               systemctl start docker
               systemctl enable docker
               EOF
+}
+
+
+resource "aws_eip" "bookmate_eip" {
+  instance = aws_instance.bookmate.id
+}
+
+output "elastic_ip" {
+  value = aws_eip.bookmate_eip.public_ip
 }
