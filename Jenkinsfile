@@ -304,7 +304,19 @@ pipeline {
             }
         }
 
-        stage('Output EC2 Elastic IP') { steps { dir('terraform') { script { def ec2_ip = sh( script: "terraform output -raw elastic_ip", returnStdout: true ).trim() echo "EC2 instance is running at: http://${ec2_ip}" } } } }
+        stage('Output EC2 Elastic IP') { 
+            steps { 
+                dir('terraform') { 
+                    script { 
+                        env.EC2_IP  = sh( 
+                            script: "terraform output -raw elastic_ip", 
+                            returnStdout: true 
+                            ).trim() 
+                            echo "EC2 instance is running at: http://${env.EC2_IP}" 
+                    } 
+                } 
+            } 
+        }
 
         stage('Build Backend') {
             steps {
