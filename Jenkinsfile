@@ -50,7 +50,6 @@
 //     }
 // }
 
-
 pipeline {
     agent any
 
@@ -69,9 +68,29 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 echo 'Provisioning infrastructure with Terraform...'
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds-id'
+                ]]) {
+                    dir('terraform') {
+                        sh 'terraform init'
+                        sh 'terraform apply -auto-approve'
+                    }
+                }
+            }
+        }
+
+        stage('Output EC2 Public IP') {
+            steps {
+                echo 'Fetching EC2 public IP...'
                 dir('terraform') {
-                    sh 'terraform init'
-                    sh 'terraform apply -auto-approve'
+                    script {
+                        def ec2_ip = sh(
+                            script: "terraform output -raw public_ip",
+                            returnStdout: true
+                        ).trim()
+                        echo "EC2 instance is running at: http://${ec2_ip}"
+                    }
                 }
             }
         }
