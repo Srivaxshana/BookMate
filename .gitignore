@@ -1,0 +1,30 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+.terraformrc
+
+# AWS credentials
+.aws/
+~/.aws/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+*.exe
+
+# Docker
+__pycache__/
+*.py[cod]
+*$py.class
+node_modules/
+
+# Environment files
+.env
+.env.local

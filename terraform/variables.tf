@@ -1,0 +1,24 @@
+variable "region" {
+  description = "AWS region to deploy into"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "instance_type" {
+  description = "EC2 instance type"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "key_name" {
+  description = "Optional existing EC2 Key Pair name to allow SSH access"
+  type        = string
+  default     = "bookmate-key-v2"
+}
+
+variable "ssh_cidr" {
+  description = "CIDR block allowed to SSH (22)"
+  type        = string
+  default     = "203.0.113.25/32"
+
+}
