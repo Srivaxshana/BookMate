@@ -1,0 +1,31 @@
+# AWS Configuration
+aws_region  = "us-east-1"
+project_name = "bookmate"
+environment = "dev"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+
+# Subnet Configuration
+public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnets = ["10.0.10.0/24", "10.0.11.0/24"]
+
+# EC2 Configuration
+instance_type  = "t3.medium"  # Change to t3.large or larger for production
+instance_count = 2
+
+# SSH Access - CHANGE THIS TO YOUR IP
+ssh_cidr_blocks = ["0.0.0.0/0"]  # Example: ["203.0.113.0/32"] for specific IP
+
+# RDS Configuration
+mysql_version       = "8.0"
+db_instance_class   = "db.t3.micro"  # Change to db.t3.small or larger for production
+db_allocated_storage = 20            # GB
+db_name             = "bookmate_db"
+db_username         = "bookmate"
+# db_password = "YOUR_SECURE_PASSWORD_HERE"  # Set via environment variable or prompt
+db_multi_az         = false           # Set to true for production
+backup_retention_days = 7             # days
+
+# Docker Registry (ECR)
+docker_registry = ""  # Will be auto-populated with ECR URL
