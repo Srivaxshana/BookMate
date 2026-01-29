@@ -339,6 +339,10 @@ pipeline {
             steps {
                 sh '''
                     docker-compose down || true
+                    docker rm -f bookmate-mysql || true
+                    docker rm -f bookmate-backend || true
+                    docker rm -f bookmate-frontend || true
+                    docker rm -f nginx || true
                     docker-compose up -d --build
                 '''
             }
