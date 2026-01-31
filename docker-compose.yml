@@ -115,6 +115,8 @@ services:
     build:
       context: ./bookmate-frontend
       dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://54.226.109.9:8081
     container_name: bookmate-frontend
     ports:
       - "80:80"
