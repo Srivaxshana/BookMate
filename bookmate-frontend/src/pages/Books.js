@@ -17,7 +17,7 @@ const Books = ({ user }) => {
 
   const fetchBooks = async () => {
     try {
-      const response = await axios.get('http://localhost:8081/api/books');
+      const response = await axios.get('/api/books');
       setBooks(response.data);
       setFilteredBooks(response.data);
     } catch (error) {
@@ -63,7 +63,7 @@ const Books = ({ user }) => {
   }
 
   try {
-    await axios.post('http://localhost:8081/api/cart', {
+    await axios.post('/api/cart', {
       userId: user.id,
       bookId: book.id,
       quantity: 1
