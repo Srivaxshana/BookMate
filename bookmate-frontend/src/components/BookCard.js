@@ -208,7 +208,7 @@ const BookCard = ({ book, onAddToCart, user }) => {
   const fetchUserRating = async () => {
     try {
       const response = await axios.get(
-        `http://localhost:8080/api/ratings/user/${user.id}/book/${book.id}`
+        `/api/ratings/user/${user.id}/book/${book.id}`
       );
       setUserRating(response.data.rating);
     } catch (error) {
@@ -223,7 +223,7 @@ const BookCard = ({ book, onAddToCart, user }) => {
     }
 
     try {
-      await axios.post('http://localhost:8080/api/ratings', {
+      await axios.post('/api/ratings', {
         userId: user.id,
         bookId: book.id,
         rating: rating,
