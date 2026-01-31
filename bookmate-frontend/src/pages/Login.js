@@ -19,7 +19,7 @@ const Login = ({ onLogin }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:8081/api/users/login', formData);
+      const response = await axios.post('/api/users/login', formData);
       onLogin(response.data.user);
       alert('Login successful!');
       navigate('/');

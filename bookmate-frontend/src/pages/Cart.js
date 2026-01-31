@@ -126,7 +126,7 @@ const Cart = ({ user }) => {
 
   const fetchCartItems = async () => {
     try {
-      const response = await axios.get(`http://localhost:8081/api/cart/${user.id}`);
+      const response = await axios.get(`/api/cart/${user.id}`);
       setCartItems(response.data);
       
       // Fetch book details for each cart item
@@ -138,7 +138,7 @@ const Cart = ({ user }) => {
 
   const fetchBookDetails = async (bookId) => {
     try {
-      const response = await axios.get(`http://localhost:8081/api/books/${bookId}`);
+      const response = await axios.get(`/api/books/${bookId}`);
       setBooks(prev => ({ ...prev, [bookId]: response.data }));
     } catch (error) {
       console.error('Error fetching book details:', error);
@@ -149,7 +149,7 @@ const Cart = ({ user }) => {
     if (newQuantity < 1) return;
     
     try {
-      await axios.put(`http://localhost:8081/api/cart/${cartItem.id}`, {
+      await axios.put(`/api/cart/${cartItem.id}`, {
         ...cartItem,
         quantity: newQuantity
       });
@@ -161,7 +161,7 @@ const Cart = ({ user }) => {
 
   const handleRemoveFromCart = async (cartItemId) => {
     try {
-      await axios.delete(`http://localhost:8081/api/cart/${cartItemId}`);
+      await axios.delete(`/api/cart/${cartItemId}`);
       fetchCartItems();
       alert('Item removed from cart');
     } catch (error) {

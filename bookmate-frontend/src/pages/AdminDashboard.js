@@ -24,7 +24,7 @@ const AdminDashboard = () => {
 
   const fetchBooks = async () => {
     try {
-      const response = await axios.get('http://localhost:8081/api/books');
+      const response = await axios.get('/api/books');
       setBooks(response.data);
     } catch (error) {
       console.error('Error fetching books:', error);
@@ -42,10 +42,10 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       if (editingBook) {
-        await axios.put(`http://localhost:8081/api/books/${editingBook.id}`, formData);
+        await axios.put(`/api/books/${editingBook.id}`, formData);
         alert('Book updated successfully!');
       } else {
-        await axios.post('http://localhost:8081/api/books', formData);
+        await axios.post('/api/books', formData);
         alert('Book added successfully!');
       }
       setShowModal(false);
@@ -67,7 +67,7 @@ const AdminDashboard = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this book?')) {
       try {
-        await axios.delete(`http://localhost:8081/api/books/${id}`);
+        await axios.delete(`/api/books/${id}`);
         alert('Book deleted successfully!');
         fetchBooks();
       } catch (error) {

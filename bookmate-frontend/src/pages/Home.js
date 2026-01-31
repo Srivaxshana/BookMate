@@ -336,7 +336,7 @@ const Home = () => {
 
   const fetchFeaturedBooks = async () => {
     try {
-      const response = await axios.get('http://localhost:8081/api/books');
+      const response = await axios.get('/api/books');
       setFeaturedBooks(response.data.slice(0, 4));
     } catch (error) {
       console.error('Error fetching books:', error);

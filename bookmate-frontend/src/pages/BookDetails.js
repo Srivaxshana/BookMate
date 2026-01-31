@@ -24,7 +24,7 @@ const BookDetails = ({ user }) => {
 
   const fetchBookDetails = async () => {
     try {
-      const response = await axios.get(`http://localhost:8081/api/books/${id}`);
+      const response = await axios.get(`/api/books/${id}`);
       setBook(response.data);
       setLoading(false);
     } catch (error) {
@@ -35,7 +35,7 @@ const BookDetails = ({ user }) => {
 
   const fetchReviews = async () => {
     try {
-      const response = await axios.get(`http://localhost:8081/api/ratings/book/${id}`);
+      const response = await axios.get(`/api/ratings/book/${id}`);
       setReviews(response.data);
     } catch (error) {
       console.error('Error fetching reviews:', error);
@@ -45,7 +45,7 @@ const BookDetails = ({ user }) => {
   const fetchUserRating = async () => {
     try {
       const response = await axios.get(
-        `http://localhost:8081/api/ratings/user/${user.id}/book/${id}`
+        `/api/ratings/user/${user.id}/book/${id}`
       );
       setUserRating(response.data.rating);
       setReviewText(response.data.review || '');
@@ -62,7 +62,7 @@ const BookDetails = ({ user }) => {
     }
 
     try {
-      await axios.post('http://localhost:8081/api/cart', {
+      await axios.post('/api/cart', {
         userId: user.id,
         bookId: book.id,
         quantity: 1
@@ -82,7 +82,7 @@ const BookDetails = ({ user }) => {
     }
 
     try {
-      await axios.post('http://localhost:8081/api/ratings', {
+      await axios.post('/api/ratings', {
         userId: user.id,
         bookId: book.id,
         rating: rating,
