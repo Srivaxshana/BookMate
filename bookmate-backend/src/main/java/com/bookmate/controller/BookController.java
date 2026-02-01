@@ -10,7 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/books")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "http://54.226.109.9")
 public class BookController {
 
     @Autowired
