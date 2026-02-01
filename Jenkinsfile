@@ -490,15 +490,19 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY ec2-user@${env.EC2_IP} '
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', usernameVariable: 'SSH_USER', keyFileVariable: 'SSH_KEY_FILE')]) {
+                    sh '''
+                        # Use SSH agent for secure key handling
+                        eval $(ssh-agent -s)
+                        ssh-add $SSH_KEY_FILE
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ec2-user@${EC2_IP} '
                             cd /opt/bookmate
                             git pull origin main
                             docker-compose down
                             docker-compose up -d --build
                         '
-                    """
+                        ssh-agent -k
+                    '''
                 }
             }
         }
