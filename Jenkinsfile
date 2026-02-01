@@ -481,9 +481,9 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                sshagent(['ec2-ssh-key']) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ec2-user@${env.EC2_IP} '
+                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY ec2-user@${env.EC2_IP} '
                             cd /opt/bookmate
                             git pull origin main
                             docker-compose down
