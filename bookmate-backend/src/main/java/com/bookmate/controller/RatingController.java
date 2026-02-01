@@ -13,7 +13,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/ratings")
-@CrossOrigin(origins = "http://54.226.109.9")
+//@CrossOrigin(origins = "http://54.226.109.9")
 public class RatingController {
 
     @Autowired

@@ -495,11 +495,30 @@ pipeline {
                         # Use SSH agent for secure key handling
                         eval $(ssh-agent -s)
                         ssh-add $SSH_KEY_FILE
-                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ec2-user@${EC2_IP} '
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${SSH_USER}@${EC2_IP} '
+                            set -e  # Exit on any error
+                            
+                            # Navigate to application directory
                             cd /opt/bookmate
+                            
+                            # Pull latest code
                             git pull origin main
-                            docker-compose down
+                            
+                            # Stop existing containers
+                            docker-compose down -v || true
+                            
+                            # Remove old containers
+                            docker system prune -f
+                            
+                            # Build and start new containers
                             docker-compose up -d --build
+                            
+                            # Wait for containers to be healthy
+                            sleep 30
+                            
+                            # Check container status
+                            docker ps
+                            docker logs bookmate-backend --tail 10
                         '
                         ssh-agent -k
                     '''

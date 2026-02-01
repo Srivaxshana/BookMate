@@ -104,6 +104,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bookmate_db
       SPRING_DATASOURCE_USERNAME: bookmate
       SPRING_DATASOURCE_PASSWORD: bookmate123
+      FRONTEND_URL: ${EC2_IP}
     depends_on:
       mysql:
         condition: service_healthy
@@ -117,6 +118,8 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_API_URL: http://${EC2_IP}:8081
+    environment:
+      EC2_IP=${EC2_IP}
     container_name: bookmate-frontend
     ports:
       - "80:80"
