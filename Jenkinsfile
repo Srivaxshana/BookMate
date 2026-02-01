@@ -258,11 +258,126 @@
 
 //4
 
+// pipeline {
+//     agent any
+
+//     tools {
+//         maven 'Maven'
+//     }
+
+//     stages {
+//         stage('Checkout') {
+//             steps {
+//                 echo 'Checking out from GitHub...'
+//                 checkout scm
+//             }
+//         }
+
+//         stage('Terraform Apply') {
+//             steps {
+//                 dir('terraform') {
+//                     withCredentials([[$class: 'UsernamePasswordMultiBinding',
+//                         credentialsId: 'aws-creds-id',
+//                         usernameVariable: 'AWS_ACCESS_KEY_ID',
+//                         passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+//                         sh '''
+//                             echo "Provisioning infrastructure with Terraform..."
+//                             terraform init
+//                             terraform apply -auto-approve
+//                         '''
+//                     }
+//                 }
+//             }
+//         }
+
+//         stage('Output EC2 Public IP') {
+//             steps {
+//                 dir('terraform') {
+//                     script {
+//                         def ec2_ip = sh(
+//                             script: "terraform output -raw public_ip",
+//                             returnStdout: true
+//                         ).trim()
+//                         echo "EC2 instance is running at: http://${ec2_ip}"
+//                     }
+//                 }
+//             }
+//         }
+
+//         stage('Output EC2 Elastic IP') { 
+//             steps { 
+//                 dir('terraform') { 
+//                     script { 
+//                         env.EC2_IP  = sh( 
+//                             script: "terraform output -raw elastic_ip", 
+//                             returnStdout: true 
+//                             ).trim() 
+//                             echo "EC2 instance is running at: http://${env.EC2_IP}" 
+//                     } 
+//                 } 
+//             } 
+//         }
+
+//         stage('Build Backend') {
+//             steps {
+//                 dir('bookmate-backend') {
+//                     sh 'mvn clean package -DskipTests'
+//                 }
+//             }
+//         }
+
+//         stage('Build Docker Images') {
+//             steps {
+//                 sh '''
+//                     docker build -t bookmate-backend ./bookmate-backend
+//                     docker build -t bookmate-frontend ./bookmate-frontend
+//                 '''
+//             }
+//         }
+
+//         stage('Deploy with Docker Compose') {
+//             steps {
+//                 sh '''
+//                     docker-compose down || true
+//                     docker rm -f bookmate-mysql || true
+//                     docker rm -f bookmate-backend || true
+//                     docker rm -f bookmate-frontend || true
+//                     docker rm -f nginx || true
+//                     docker-compose up -d --build
+//                 '''
+//             }
+//         }
+//     }
+
+//     post {
+//         success {
+//             echo 'Pipeline completed successfully!'
+//         }
+//         failure {
+//             echo 'Pipeline failed!'
+//         }
+//     }
+// }
+
+
+
+//5
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'docker:24-dind'
+            args '--privileged'
+        }
+    }
 
     tools {
         maven 'Maven'
+        terraform 'Terraform'
+    }
+
+    environment {
+        DOCKER_REGISTRY = 'your-registry.com'
+        AWS_REGION = 'us-east-1'
     }
 
     stages {
@@ -273,88 +388,94 @@ pipeline {
             }
         }
 
-        stage('Terraform Apply') {
+        stage('Terraform Init & Plan') {
             steps {
                 dir('terraform') {
-                    withCredentials([[$class: 'UsernamePasswordMultiBinding',
-                        credentialsId: 'aws-creds-id',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-credentials']]) {
                         sh '''
-                            echo "Provisioning infrastructure with Terraform..."
                             terraform init
-                            terraform apply -auto-approve
+                            terraform plan -out=tfplan
                         '''
                     }
                 }
             }
         }
 
-        stage('Output EC2 Public IP') {
+        stage('Terraform Apply') {
             steps {
                 dir('terraform') {
-                    script {
-                        def ec2_ip = sh(
-                            script: "terraform output -raw public_ip",
-                            returnStdout: true
-                        ).trim()
-                        echo "EC2 instance is running at: http://${ec2_ip}"
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-credentials']]) {
+                        sh '''
+                            terraform apply -auto-approve tfplan
+                        '''
                     }
                 }
             }
         }
 
-        stage('Output EC2 Elastic IP') { 
-            steps { 
-                dir('terraform') { 
-                    script { 
-                        env.EC2_IP  = sh( 
-                            script: "terraform output -raw elastic_ip", 
-                            returnStdout: true 
-                            ).trim() 
-                            echo "EC2 instance is running at: http://${env.EC2_IP}" 
-                    } 
-                } 
-            } 
-        }
-
-        stage('Build Backend') {
+        stage('Get EC2 IP') {
             steps {
-                dir('bookmate-backend') {
-                    sh 'mvn clean package -DskipTests'
+                dir('terraform') {
+                    script {
+                        env.EC2_IP = sh(
+                            script: "terraform output -raw elastic_ip",
+                            returnStdout: true
+                        ).trim()
+                        echo "EC2 instance: http://${env.EC2_IP}"
+                    }
                 }
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Build & Test Backend') {
             steps {
-                sh '''
-                    docker build -t bookmate-backend ./bookmate-backend
-                    docker build -t bookmate-frontend ./bookmate-frontend
-                '''
+                dir('bookmate-backend') {
+                    sh 'mvn clean package'
+                }
             }
         }
 
-        stage('Deploy with Docker Compose') {
+        stage('Build & Push Images') {
             steps {
-                sh '''
-                    docker-compose down || true
-                    docker rm -f bookmate-mysql || true
-                    docker rm -f bookmate-backend || true
-                    docker rm -f bookmate-frontend || true
-                    docker rm -f nginx || true
-                    docker-compose up -d --build
-                '''
+                script {
+                    def backendImage = docker.build("bookmate-backend:${BUILD_NUMBER}", "./bookmate-backend")
+                    def frontendImage = docker.build("bookmate-frontend:${BUILD_NUMBER}", "./bookmate-frontend")
+                    
+                    // Push to registry if needed
+                    // backendImage.push()
+                    // frontendImage.push()
+                }
+            }
+        }
+
+        stage('Deploy to EC2') {
+            steps {
+                sshagent(['ec2-ssh-key']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ec2-user@${env.EC2_IP} '
+                            cd /opt/bookmate
+                            git pull origin main
+                            docker-compose down
+                            docker-compose up -d --build
+                        '
+                    """
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo '✅ Pipeline completed successfully!'
+            echo "🌐 Application deployed at: http://${env.EC2_IP}"
         }
         failure {
-            echo 'Pipeline failed!'
+            echo '❌ Pipeline failed!'
+            mail to: 'devops@company.com',
+                 subject: "Pipeline Failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
+                 body: "Build failed. Check console output at ${env.BUILD_URL}"
         }
     }
 }
