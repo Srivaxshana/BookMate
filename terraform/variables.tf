@@ -13,7 +13,7 @@ variable "instance_type" {
 variable "key_name" {
   description = "Optional existing EC2 Key Pair name to allow SSH access"
   type        = string
-  default     = "bookmate-key-v2"
+  default     = "bookmate-key-v3"
 }
 
 variable "ssh_cidr" {
