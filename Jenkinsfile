@@ -479,6 +479,15 @@ pipeline {
             }
         }
 
+        stage('Build Docker Images') {
+            steps {
+                sh '''
+                    docker build -t bookmate-backend:${BUILD_NUMBER} ./bookmate-backend
+                    docker build -t bookmate-frontend:${BUILD_NUMBER} ./bookmate-frontend
+                '''
+            }
+        }
+
         stage('Deploy to EC2') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
