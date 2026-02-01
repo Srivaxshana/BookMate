@@ -15,7 +15,7 @@ output "instance_public_dns" {
 
 
 output "ssh_command" {
-  value = "ssh -i ~/.ssh/bookmate-key-v2.pem ubuntu@${aws_instance.bookmate.public_ip}"
+  value = "ssh -i ~/.ssh/bookmate-key-v4.pem ubuntu@${aws_instance.bookmate.public_ip}"
 }
 
 
