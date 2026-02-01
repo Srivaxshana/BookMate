@@ -390,7 +390,10 @@ pipeline {
                         usernameVariable: 'AWS_ACCESS_KEY_ID',
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            # Install Terraform in user directory (no sudo needed)
+                            # Clean up any existing downloads
+                            rm -f terraform_*.zip*
+                            
+                            # Install Terraform if not present
                             if ! command -v terraform &> /dev/null; then
                                 wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
                                 unzip terraform_1.5.7_linux_amd64.zip
@@ -398,9 +401,14 @@ pipeline {
                                 export PATH=$PWD:$PATH
                             fi
                             
-                            # Use local terraform
-                            ./terraform init
-                            ./terraform plan -out=tfplan
+                            # Use terraform (system or local)
+                            if [ -f "./terraform" ]; then
+                                ./terraform init
+                                ./terraform plan -out=tfplan
+                            else
+                                terraform init
+                                terraform plan -out=tfplan
+                            fi
                         '''
                     }
                 }
