@@ -431,7 +431,41 @@ pipeline {
         stage('Build & Test Backend') {
             steps {
                 dir('bookmate-backend') {
-                    sh 'mvn clean package'
+                    sh '''
+                        # Clean up any existing test container
+                        docker stop test-mysql 2>/dev/null || true
+                        docker rm test-mysql 2>/dev/null || true
+                        
+                        # Start MySQL container for testing
+                        docker run -d --name test-mysql \
+                            -e MYSQL_ROOT_PASSWORD=root123 \
+                            -e MYSQL_DATABASE=bookmate_db \
+                            -e MYSQL_USER=bookmate \
+                            -e MYSQL_PASSWORD=bookmate123 \
+                            -p 3306:3306 \
+                            mysql:8.0
+                        
+                        # Wait for MySQL to be ready
+                        echo "Waiting for MySQL to start..."
+                        for i in {1..30}; do
+                            if docker exec test-mysql mysqladmin ping -h localhost --silent; then
+                                echo "MySQL is ready!"
+                                break
+                            fi
+                            echo "Waiting... $i/30"
+                            sleep 2
+                        done
+                        
+                        # Run tests with MySQL connection
+                        mvn clean package \
+                            -Dspring.datasource.url=jdbc:mysql://localhost:3306/bookmate_db \
+                            -Dspring.datasource.username=bookmate \
+                            -Dspring.datasource.password=bookmate123
+                        
+                        # Clean up test container
+                        docker stop test-mysql
+                        docker rm test-mysql
+                    '''
                 }
             }
         }
