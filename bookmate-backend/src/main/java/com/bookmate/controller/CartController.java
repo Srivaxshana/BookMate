@@ -57,7 +57,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/cart")
-@CrossOrigin(origins = "http://54.237.133.41")
+@CrossOrigin(origins = "http://54.226.109.9")
 public class CartController {
 
     @Autowired
