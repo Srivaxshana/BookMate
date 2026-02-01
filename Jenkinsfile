@@ -436,13 +436,13 @@ pipeline {
                         docker stop test-mysql 2>/dev/null || true
                         docker rm test-mysql 2>/dev/null || true
                         
-                        # Start MySQL container for testing
+                        # Start MySQL container for testing (use different port)
                         docker run -d --name test-mysql \
                             -e MYSQL_ROOT_PASSWORD=root123 \
                             -e MYSQL_DATABASE=bookmate_db \
                             -e MYSQL_USER=bookmate \
                             -e MYSQL_PASSWORD=bookmate123 \
-                            -p 3306:3306 \
+                            -p 3307:3306 \
                             mysql:8.0
                         
                         # Wait for MySQL to be ready
@@ -456,9 +456,9 @@ pipeline {
                             sleep 2
                         done
                         
-                        # Run tests with MySQL connection
+                        # Run tests with MySQL connection (use port 3307)
                         mvn clean package \
-                            -Dspring.datasource.url=jdbc:mysql://localhost:3306/bookmate_db \
+                            -Dspring.datasource.url=jdbc:mysql://localhost:3307/bookmate_db \
                             -Dspring.datasource.username=bookmate \
                             -Dspring.datasource.password=bookmate123
                         
