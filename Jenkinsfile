@@ -432,50 +432,50 @@ pipeline {
             steps {
                 dir('bookmate-backend') {
                     sh '''
-                        # Clean up any existing test container
+                        # Clean up any existing test container and network
                         docker stop test-mysql 2>/dev/null || true
                         docker rm test-mysql 2>/dev/null || true
+                        docker network rm test-net 2>/dev/null || true
                         
-                        # Start MySQL container for testing (use different port)
-                        docker run -d --name test-mysql \
+                        # Create a Docker network for testing
+                        docker network create test-net
+                        
+                        # Start MySQL container on the test network
+                        docker run -d --name test-mysql --network test-net \
                             -e MYSQL_ROOT_PASSWORD=root123 \
                             -e MYSQL_DATABASE=bookmate_db \
                             -e MYSQL_USER=bookmate \
                             -e MYSQL_PASSWORD=bookmate123 \
-                            -p 3307:3306 \
                             mysql:8.0
                         
-                        # Wait for MySQL to be ready
+                        # Wait for MySQL to be ready (improved check)
                         echo "Waiting for MySQL to start..."
-                        for i in {1..30}; do
-                            if docker exec test-mysql mysqladmin ping -h localhost --silent; then
+                        for i in {1..60}; do
+                            if docker exec test-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
                                 echo "MySQL is ready!"
+                                sleep 5  # Extra time for full initialization
                                 break
                             fi
-                            echo "Waiting... $i/30"
+                            echo "Waiting... $i/60"
                             sleep 2
                         done
                         
-                        # Run tests with MySQL connection (use port 3307)
-                        mvn clean package \
-                            -Dspring.datasource.url=jdbc:mysql://localhost:3307/bookmate_db \
+                        # Run tests using Docker network (connect to MySQL by container name)
+                        docker run --rm --network test-net \
+                            -v $PWD:/app \
+                            -w /app \
+                            maven:3.9.4-eclipse-temurin-21 \
+                            mvn clean package \
+                            -Dspring.datasource.url=jdbc:mysql://test-mysql:3306/bookmate_db \
                             -Dspring.datasource.username=bookmate \
                             -Dspring.datasource.password=bookmate123
                         
-                        # Clean up test container
+                        # Clean up test container and network
                         docker stop test-mysql
                         docker rm test-mysql
+                        docker network rm test-net
                     '''
                 }
-            }
-        }
-
-        stage('Build Docker Images') {
-            steps {
-                sh '''
-                    docker build -t bookmate-backend:${BUILD_NUMBER} ./bookmate-backend
-                    docker build -t bookmate-frontend:${BUILD_NUMBER} ./bookmate-frontend
-                '''
             }
         }
 
