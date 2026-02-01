@@ -363,16 +363,10 @@
 
 //5
 pipeline {
-    agent {
-        docker {
-            image 'docker:24-dind'
-            args '--privileged'
-        }
-    }
+    agent any
 
     tools {
         maven 'Maven'
-        terraform 'Terraform'
     }
 
     environment {
@@ -391,9 +385,17 @@ pipeline {
         stage('Terraform Init & Plan') {
             steps {
                 dir('terraform') {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-credentials']]) {
+                    withCredentials([[$class: 'UsernamePasswordMultiBinding',
+                        credentialsId: 'aws-creds-id',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
+                            # Install Terraform if not present
+                            if ! command -v terraform &> /dev/null; then
+                                wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+                                unzip terraform_1.5.7_linux_amd64.zip
+                                sudo mv terraform /usr/local/bin/
+                            fi
                             terraform init
                             terraform plan -out=tfplan
                         '''
@@ -405,8 +407,10 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 dir('terraform') {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-credentials']]) {
+                    withCredentials([[$class: 'UsernamePasswordMultiBinding',
+                        credentialsId: 'aws-creds-id',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
                             terraform apply -auto-approve tfplan
                         '''
@@ -437,16 +441,12 @@ pipeline {
             }
         }
 
-        stage('Build & Push Images') {
+        stage('Build Docker Images') {
             steps {
-                script {
-                    def backendImage = docker.build("bookmate-backend:${BUILD_NUMBER}", "./bookmate-backend")
-                    def frontendImage = docker.build("bookmate-frontend:${BUILD_NUMBER}", "./bookmate-frontend")
-                    
-                    // Push to registry if needed
-                    // backendImage.push()
-                    // frontendImage.push()
-                }
+                sh '''
+                    docker build -t bookmate-backend:${BUILD_NUMBER} ./bookmate-backend
+                    docker build -t bookmate-frontend:${BUILD_NUMBER} ./bookmate-frontend
+                '''
             }
         }
 
@@ -473,9 +473,6 @@ pipeline {
         }
         failure {
             echo '❌ Pipeline failed!'
-            mail to: 'devops@company.com',
-                 subject: "Pipeline Failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
-                 body: "Build failed. Check console output at ${env.BUILD_URL}"
         }
     }
 }
