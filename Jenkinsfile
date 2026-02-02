@@ -463,9 +463,11 @@ pipeline {
                         # Run tests using Docker network (connect to MySQL by container name)
                         docker run --rm --network test-net \
                             -v $PWD:/app \
+                            -v $PWD/.mvn/settings.xml:/root/.m2/settings.xml \
                             -w /app \
                             maven:3.9.4-eclipse-temurin-21 \
                             mvn clean package \
+                            -s /root/.m2/settings.xml \
                             -Dspring.datasource.url=jdbc:mysql://test-mysql:3306/bookmate_db \
                             -Dspring.datasource.username=bookmate \
                             -Dspring.datasource.password=bookmate123
