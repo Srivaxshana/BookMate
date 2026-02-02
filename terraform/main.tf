@@ -106,6 +106,12 @@ resource "aws_instance" "bookmate" {
 
 resource "aws_eip" "bookmate_eip" {
   instance = aws_instance.bookmate.id
+  
+  depends_on = [aws_instance.bookmate]
+  
+  tags = {
+    Name = "bookmate-eip"
+  }
 }
 
 output "elastic_ip" {
