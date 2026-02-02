@@ -97,8 +97,9 @@ resource "aws_instance" "bookmate" {
               cd /opt/bookmate
               git clone https://github.com/Srivaxshana/BookMate.git .
               
-              # Start services with docker-compose
-              docker-compose up -d
+              # Fix ownership so ubuntu user can access it
+              chown -R ubuntu:ubuntu /opt/bookmate
+              chmod -R 755 /opt/bookmate
               EOF
 }
 
