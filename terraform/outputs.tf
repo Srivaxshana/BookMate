@@ -3,6 +3,11 @@ output "public_ip" {
   value       = aws_instance.bookmate.public_ip
 }
 
+output "elastic_ip" {
+  description = "Elastic IP address"
+  value       = aws_eip.bookmate_eip.public_ip
+}
+
 output "instance_id" {
   description = "EC2 instance ID"
   value       = aws_instance.bookmate.id
