@@ -371,7 +371,7 @@ pipeline {
 
     environment {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
-        DOCKERHUB_USERNAME = 'your-dockerhub-username'  // Change this to your Docker Hub username
+        DOCKERHUB_USERNAME = 'srivaxshana'
         AWS_REGION = 'us-east-1'
     }
 
