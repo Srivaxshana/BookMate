@@ -499,6 +499,7 @@ pipeline {
                         ssh-add $SSH_KEY_FILE
                         ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${EC2_IP} '
                             set -e  # Exit on any error
+                            export EC2_IP=${EC2_IP}
                             
                             # Check if directory exists
                             if [ ! -d /opt/bookmate ]; then
@@ -512,13 +513,19 @@ pipeline {
                                 git pull origin main || (git reset --hard && git pull origin main)
                             fi
                             
+                            # Ensure docker group permissions
+                            sudo usermod -aG docker ubuntu || true
+                            sudo systemctl restart docker || true
+                            newgrp docker << EOF
+                            
                             # Stop existing containers
                             docker-compose down -v || true
                             
                             # Remove old containers
-                            docker system prune -f
+                            docker system prune -f || true
                             
                             # Build and start new containers
+                            export EC2_IP=${EC2_IP}
                             docker-compose up -d --build
                             
                             # Wait for containers to be healthy
@@ -527,6 +534,7 @@ pipeline {
                             # Check container status
                             docker ps
                             docker logs bookmate-backend --tail 10
+EOF
                         '
                         ssh-agent -k
                     '''

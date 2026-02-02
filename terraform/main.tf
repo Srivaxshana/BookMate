@@ -90,16 +90,24 @@ resource "aws_instance" "bookmate" {
                 wget
               systemctl start docker
               systemctl enable docker
+              
+              # Add ubuntu user to docker group
               usermod -aG docker ubuntu
+              
+              # Wait for docker to be ready
+              sleep 10
               
               # Clone the repository
               mkdir -p /opt/bookmate
               cd /opt/bookmate
-              git clone https://github.com/Srivaxshana/BookMate.git .
+              
+              # Use sudo to clone as this script runs as root
+              sudo -u ubuntu git clone https://github.com/Srivaxshana/BookMate.git . || git clone https://github.com/Srivaxshana/BookMate.git .
               
               # Fix ownership so ubuntu user can access it
               chown -R ubuntu:ubuntu /opt/bookmate
               chmod -R 755 /opt/bookmate
+              chmod g+s /opt/bookmate
               EOF
 }
 
