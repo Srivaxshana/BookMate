@@ -521,11 +521,10 @@ pipeline {
                         # Use SSH agent for secure key handling
                         eval $(ssh-agent -s)
                         ssh-add $SSH_KEY_FILE
-                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${EC2_IP} << 'ENDSSH'
+                        
+                        # Deploy to EC2
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${EC2_IP} bash << EOF
                             set -e
-                            export EC2_IP='${EC2_IP}'
-                            export DOCKERHUB_USERNAME='${DOCKERHUB_USERNAME}'
-                            export BUILD_NUMBER='${BUILD_NUMBER}'
                             
                             echo "Deploying to EC2 instance at ${EC2_IP}..."
                             
@@ -539,32 +538,35 @@ pipeline {
                                 git clone https://github.com/Srivaxshana/BookMate.git .
                             fi
                             
+                            # Ensure ubuntu user can run docker without sudo
+                            sudo usermod -aG docker ubuntu || true
+                            
                             # Stop existing containers
-                            docker-compose down -v || true
+                            sudo docker-compose down -v || true
                             
                             # Remove old images
-                            docker system prune -af || true
+                            sudo docker system prune -af || true
                             
                             # Pull latest images from Docker Hub
-                            docker pull ${DOCKERHUB_USERNAME}/bookmate-backend:latest || true
-                            docker pull ${DOCKERHUB_USERNAME}/bookmate-frontend:latest || true
+                            sudo docker pull srivaxshana/bookmate-backend:latest || true
+                            sudo docker pull srivaxshana/bookmate-frontend:latest || true
                             
                             # Start containers with docker-compose
-                            export EC2_IP='${EC2_IP}'
-                            docker-compose up -d --build
+                            export EC2_IP=${EC2_IP}
+                            sudo docker-compose up -d --build
                             
                             # Wait for containers to be healthy
                             sleep 30
                             
                             # Check container status
-                            docker ps
+                            sudo docker ps
                             echo "=== Backend Logs ==="
-                            docker logs bookmate-backend --tail 20 || true
+                            sudo docker logs bookmate-backend --tail 20 || true
                             echo "=== Frontend Logs ==="
-                            docker logs bookmate-frontend --tail 20 || true
+                            sudo docker logs bookmate-frontend --tail 20 || true
                             echo "=== MySQL Logs ==="
-                            docker logs bookmate-mysql --tail 20 || true
-ENDSSH
+                            sudo docker logs bookmate-mysql --tail 20 || true
+EOF
                         ssh-agent -k
                     '''
                 }
