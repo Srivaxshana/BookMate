@@ -80,10 +80,26 @@ resource "aws_instance" "bookmate" {
 
   user_data = <<-EOF
               #!/bin/bash
+              set -e
               apt-get update -y
-              apt-get install -y docker.io docker-compose
+              apt-get install -y \
+                docker.io \
+                docker-compose \
+                git \
+                curl \
+                wget
               systemctl start docker
               systemctl enable docker
+              usermod -aG docker ubuntu
+              
+              # Clone the repository
+              mkdir -p /opt/bookmate
+              cd /opt/bookmate
+              git clone https://github.com/YOUR_USERNAME/Bookmate_Devops.git .
+              cd BookMate
+              
+              # Start services with docker-compose
+              docker-compose up -d
               EOF
 }
 

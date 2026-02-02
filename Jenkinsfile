@@ -490,12 +490,12 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', usernameVariable: 'SSH_USER', keyFileVariable: 'SSH_KEY_FILE')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
                     sh '''
                         # Use SSH agent for secure key handling
                         eval $(ssh-agent -s)
                         ssh-add $SSH_KEY_FILE
-                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${SSH_USER}@${EC2_IP} '
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${EC2_IP} '
                             set -e  # Exit on any error
                             
                             # Navigate to application directory
