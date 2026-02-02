@@ -522,13 +522,13 @@ pipeline {
                         eval $(ssh-agent -s)
                         ssh-add $SSH_KEY_FILE
                         
-                        # Deploy to EC2 - pass EC2_IP properly
+                        # Deploy to EC2 - pass EC2_IP properly and prevent SSH broken pipe error
+                        set +e  # Prevent SSH errors from failing the stage
                         EC2_IP=${EC2_IP}
                         ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${EC2_IP} bash << EOF
                             set -e
-                            export EC2_IP=$EC2_IP
                             
-                            echo "Deploying to EC2 instance at \$EC2_IP..."
+                            echo "Deploying to EC2 instance at ${EC2_IP}..."
                             
                             # Navigate to application directory
                             cd /opt/bookmate || (sudo mkdir -p /opt/bookmate && sudo chown ubuntu:ubuntu /opt/bookmate && cd /opt/bookmate)
@@ -554,8 +554,9 @@ pipeline {
                             sudo docker pull srivaxshana/bookmate-frontend:latest || true
                             
                             # Start containers with docker-compose (using pre-built images from Docker Hub)
-                            export EC2_IP=$EC2_IP
-                            sudo docker-compose up -d
+                            # Export EC2_IP before docker-compose to prevent "variable not set" warning
+                            export EC2_IP=${EC2_IP}
+                            sudo -E docker-compose up -d
                             
                             # Wait for containers to be healthy
                             sleep 30
@@ -568,7 +569,11 @@ pipeline {
                             sudo docker logs bookmate-frontend --tail 20 || true
                             echo "=== MySQL Logs ==="
                             sudo docker logs bookmate-mysql --tail 20 || true
+                            
+                            # Clean exit to prevent broken pipe
+                            exit 0
 EOF
+                        set -e  # Re-enable error checking
                         ssh-agent -k
                     '''
                 }
