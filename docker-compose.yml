@@ -106,8 +106,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: bookmate123
       FRONTEND_URL: ${EC2_IP}
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mysql
     networks:
       - bookmate-network
     restart: unless-stopped
