@@ -500,11 +500,19 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${EC2_IP} '
                             set -e  # Exit on any error
                             
-                            # Navigate to application directory
-                            cd /opt/bookmate
+                            # Check if directory exists, if not clone it
+                            if [ ! -d /opt/bookmate ]; then
+                                mkdir -p /opt/bookmate
+                                cd /opt/bookmate
+                                git clone https://github.com/Srivaxshana/BookMate.git .
+                            else
+                                cd /opt/bookmate
+                                # Pull latest code
+                                git pull origin main
+                            fi
                             
-                            # Pull latest code
-                            git pull origin main
+                            # Ensure correct permissions
+                            sudo chown -R ubuntu:ubuntu /opt/bookmate || true
                             
                             # Stop existing containers
                             docker-compose down -v || true
