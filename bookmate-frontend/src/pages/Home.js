@@ -336,7 +336,9 @@ const Home = () => {
 
   const fetchFeaturedBooks = async () => {
     try {
-      const response = await axios.get('/api/books');
+      // Use dynamic API URL based on current host
+      const apiUrl = `http://${window.location.hostname}:8081/api/books`;
+      const response = await axios.get(apiUrl);
       setFeaturedBooks(response.data.slice(0, 4));
     } catch (error) {
       console.error('Error fetching books:', error);
