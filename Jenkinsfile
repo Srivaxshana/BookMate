@@ -419,11 +419,20 @@ pipeline {
             steps {
                 dir('terraform') {
                     script {
-                        env.EC2_IP = sh(
+                        def elasticIp = sh(
                             script: "terraform output -raw elastic_ip",
                             returnStdout: true
                         ).trim()
-                        echo "EC2 instance: http://${env.EC2_IP}"
+                        def publicIp = sh(
+                            script: "terraform output -raw public_ip",
+                            returnStdout: true
+                        ).trim()
+
+                        // Use public IP for deployment to avoid stale EIP issues
+                        env.EC2_IP = publicIp
+                        echo "Elastic IP (terraform): http://${elasticIp}"
+                        echo "Public IP (instance): http://${publicIp}"
+                        echo "EC2 instance (deploy target): http://${env.EC2_IP}"
                     }
                 }
             }
