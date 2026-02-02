@@ -94,9 +94,7 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: ./bookmate-backend
-      dockerfile: Dockerfile
+    image: srivaxshana/bookmate-backend:latest
     container_name: bookmate-backend
     ports:
       - "8081:8080"
@@ -112,11 +110,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./bookmate-frontend
-      dockerfile: Dockerfile
-      args:
-        REACT_APP_API_URL: http://${EC2_IP}:8081
+    image: srivaxshana/bookmate-frontend:latest
     environment:
       EC2_IP: ${EC2_IP}
     container_name: bookmate-frontend
