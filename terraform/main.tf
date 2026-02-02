@@ -95,8 +95,7 @@ resource "aws_instance" "bookmate" {
               # Clone the repository
               mkdir -p /opt/bookmate
               cd /opt/bookmate
-              git clone https://github.com/YOUR_USERNAME/Bookmate_Devops.git .
-              cd BookMate
+              git clone https://github.com/Srivaxshana/BookMate.git .
               
               # Start services with docker-compose
               docker-compose up -d
