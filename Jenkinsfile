@@ -370,7 +370,8 @@ pipeline {
     }
 
     environment {
-        DOCKER_REGISTRY = 'your-registry.com'
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+        DOCKERHUB_USERNAME = 'your-dockerhub-username'  // Change this to your Docker Hub username
         AWS_REGION = 'us-east-1'
     }
 
@@ -484,8 +485,31 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh '''
-                    docker build -t bookmate-backend:${BUILD_NUMBER} ./bookmate-backend
-                    docker build -t bookmate-frontend:${BUILD_NUMBER} ./bookmate-frontend
+                    echo "Building Docker images..."
+                    docker build -t ${DOCKERHUB_USERNAME}/bookmate-backend:${BUILD_NUMBER} ./bookmate-backend
+                    docker build -t ${DOCKERHUB_USERNAME}/bookmate-backend:latest ./bookmate-backend
+                    
+                    docker build -t ${DOCKERHUB_USERNAME}/bookmate-frontend:${BUILD_NUMBER} ./bookmate-frontend
+                    docker build -t ${DOCKERHUB_USERNAME}/bookmate-frontend:latest ./bookmate-frontend
+                '''
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                sh '''
+                    echo "Logging into Docker Hub..."
+                    echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
+                    
+                    echo "Pushing images to Docker Hub..."
+                    docker push ${DOCKERHUB_USERNAME}/bookmate-backend:${BUILD_NUMBER}
+                    docker push ${DOCKERHUB_USERNAME}/bookmate-backend:latest
+                    
+                    docker push ${DOCKERHUB_USERNAME}/bookmate-frontend:${BUILD_NUMBER}
+                    docker push ${DOCKERHUB_USERNAME}/bookmate-frontend:latest
+                    
+                    echo "Logging out from Docker Hub..."
+                    docker logout
                 '''
             }
         }
@@ -497,35 +521,36 @@ pipeline {
                         # Use SSH agent for secure key handling
                         eval $(ssh-agent -s)
                         ssh-add $SSH_KEY_FILE
-                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${EC2_IP} '
-                            set -e  # Exit on any error
-                            export EC2_IP=${EC2_IP}
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${EC2_IP} << 'ENDSSH'
+                            set -e
+                            export EC2_IP='${EC2_IP}'
+                            export DOCKERHUB_USERNAME='${DOCKERHUB_USERNAME}'
+                            export BUILD_NUMBER='${BUILD_NUMBER}'
                             
-                            # Check if directory exists
-                            if [ ! -d /opt/bookmate ]; then
-                                echo "Directory /opt/bookmate does not exist. Creating with sudo..."
-                                echo "ubuntu" | sudo -S mkdir -p /opt/bookmate 2>/dev/null || sudo mkdir -p /opt/bookmate
-                                echo "ubuntu" | sudo -S chown -R ubuntu:ubuntu /opt/bookmate 2>/dev/null || sudo chown -R ubuntu:ubuntu /opt/bookmate
-                                cd /opt/bookmate
-                                git clone https://github.com/Srivaxshana/BookMate.git .
+                            echo "Deploying to EC2 instance at ${EC2_IP}..."
+                            
+                            # Navigate to application directory
+                            cd /opt/bookmate || (sudo mkdir -p /opt/bookmate && sudo chown ubuntu:ubuntu /opt/bookmate && cd /opt/bookmate)
+                            
+                            # Pull or clone latest code
+                            if [ -d .git ]; then
+                                git pull origin main || (git fetch --all && git reset --hard origin/main)
                             else
-                                cd /opt/bookmate
-                                git pull origin main || (git reset --hard && git pull origin main)
+                                git clone https://github.com/Srivaxshana/BookMate.git .
                             fi
-                            
-                            # Ensure docker group permissions
-                            sudo usermod -aG docker ubuntu || true
-                            sudo systemctl restart docker || true
-                            newgrp docker << EOF
                             
                             # Stop existing containers
                             docker-compose down -v || true
                             
-                            # Remove old containers
-                            docker system prune -f || true
+                            # Remove old images
+                            docker system prune -af || true
                             
-                            # Build and start new containers
-                            export EC2_IP=${EC2_IP}
+                            # Pull latest images from Docker Hub
+                            docker pull ${DOCKERHUB_USERNAME}/bookmate-backend:latest || true
+                            docker pull ${DOCKERHUB_USERNAME}/bookmate-frontend:latest || true
+                            
+                            # Start containers with docker-compose
+                            export EC2_IP='${EC2_IP}'
                             docker-compose up -d --build
                             
                             # Wait for containers to be healthy
@@ -533,9 +558,13 @@ pipeline {
                             
                             # Check container status
                             docker ps
-                            docker logs bookmate-backend --tail 10
-EOF
-                        '
+                            echo "=== Backend Logs ==="
+                            docker logs bookmate-backend --tail 20 || true
+                            echo "=== Frontend Logs ==="
+                            docker logs bookmate-frontend --tail 20 || true
+                            echo "=== MySQL Logs ==="
+                            docker logs bookmate-mysql --tail 20 || true
+ENDSSH
                         ssh-agent -k
                     '''
                 }

@@ -75,7 +75,11 @@ resource "aws_instance" "bookmate" {
     Name = "BookMate-App"
     Environment = "Dev"
     Owner       = "Sri"
+  }
 
+  # Prevent recreation - only update in place
+  lifecycle {
+    ignore_changes = [ami, user_data]
   }
 
   user_data = <<-EOF
@@ -116,6 +120,12 @@ resource "aws_eip" "bookmate_eip" {
   instance = aws_instance.bookmate.id
   
   depends_on = [aws_instance.bookmate]
+  
+  # Prevent recreation - keep the same EIP
+  lifecycle {
+    prevent_destroy = false
+    create_before_destroy = true
+  }
   
   tags = {
     Name = "bookmate-eip"
