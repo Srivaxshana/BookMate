@@ -553,9 +553,9 @@ pipeline {
                             sudo docker pull srivaxshana/bookmate-backend:latest || true
                             sudo docker pull srivaxshana/bookmate-frontend:latest || true
                             
-                            # Start containers with docker-compose
+                            # Start containers with docker-compose (using pre-built images from Docker Hub)
                             export EC2_IP=$EC2_IP
-                            sudo docker-compose up -d --build
+                            sudo docker-compose up -d
                             
                             # Wait for containers to be healthy
                             sleep 30
