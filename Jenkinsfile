@@ -526,37 +526,52 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
-                    sh '''
-                        # Use SSH agent for secure key handling
-                        eval $(ssh-agent -s)
-                        ssh-add $SSH_KEY_FILE
+                    script {
+                        // Get fresh IP from Terraform
+                        dir('terraform') {
+                            def freshEC2IP = sh(
+                                script: "terraform output -raw public_ip",
+                                returnStdout: true
+                            ).trim()
+                            
+                            env.EC2_IP_DEPLOY = freshEC2IP
+                            echo "Using EC2 IP for deployment: ${env.EC2_IP_DEPLOY}"
+                        }
                         
-                        # Deploy to EC2 - create deployment script inline
-                        EC2_IP=${EC2_IP}
-                        
-                        # Use printf to safely pass script to SSH (avoids heredoc issues)
-                        printf '%s\n' \
-                            'set -e' \
-                            'echo "Deploying to EC2 instance at '$EC2_IP'..."' \
-                            'cd /opt/bookmate || (sudo mkdir -p /opt/bookmate && sudo chown ubuntu:ubuntu /opt/bookmate && cd /opt/bookmate)' \
-                            'if [ -d .git ]; then git pull origin main || (git fetch --all && git reset --hard origin/main); else git clone https://github.com/Srivaxshana/BookMate.git .; fi' \
-                            'sudo usermod -aG docker ubuntu || true' \
-                            'sudo docker-compose down -v || true' \
-                            'sudo docker system prune -af || true' \
-                            'sudo docker pull srivaxshana/bookmate-backend:latest || true' \
-                            'sudo docker pull srivaxshana/bookmate-frontend:latest || true' \
-                            'export EC2_IP='$EC2_IP \
-                            'sudo -E docker-compose up -d' \
-                            'sleep 30' \
-                            'sudo docker ps' \
-                            'echo "=== Backend Logs ===" && sudo docker logs bookmate-backend --tail 20 || true' \
-                            'echo "=== Frontend Logs ===" && sudo docker logs bookmate-frontend --tail 20 || true' \
-                            'echo "=== MySQL Logs ===" && sudo docker logs bookmate-mysql --tail 20 || true' \
-                            'echo "✅ Deployment completed!"' \
-                        | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 ubuntu@${EC2_IP} bash
-                        
-                        ssh-agent -k
-                    '''
+                        // Now deploy using the fresh IP
+                        sh '''
+                            # Use SSH agent for secure key handling
+                            eval $(ssh-agent -s)
+                            ssh-add $SSH_KEY_FILE
+                            
+                            # Deploy to EC2 - get IP from environment
+                            EC2_IP_TARGET=${EC2_IP_DEPLOY}
+                            echo "Deploying to EC2 instance at $EC2_IP_TARGET..."
+                            
+                            # Use printf to safely pass script to SSH (avoids heredoc issues)
+                            printf '%s\n' \
+                                'set -e' \
+                                'echo "Deploying to EC2 instance at '$EC2_IP_TARGET'..."' \
+                                'cd /opt/bookmate || (sudo mkdir -p /opt/bookmate && sudo chown ubuntu:ubuntu /opt/bookmate && cd /opt/bookmate)' \
+                                'if [ -d .git ]; then git pull origin main || (git fetch --all && git reset --hard origin/main); else git clone https://github.com/Srivaxshana/BookMate.git .; fi' \
+                                'sudo usermod -aG docker ubuntu || true' \
+                                'sudo docker-compose down -v || true' \
+                                'sudo docker system prune -af || true' \
+                                'sudo docker pull srivaxshana/bookmate-backend:latest || true' \
+                                'sudo docker pull srivaxshana/bookmate-frontend:latest || true' \
+                                'export EC2_IP='$EC2_IP_TARGET \
+                                'sudo -E docker-compose up -d' \
+                                'sleep 30' \
+                                'sudo docker ps' \
+                                'echo "=== Backend Logs ===" && sudo docker logs bookmate-backend --tail 20 || true' \
+                                'echo "=== Frontend Logs ===" && sudo docker logs bookmate-frontend --tail 20 || true' \
+                                'echo "=== MySQL Logs ===" && sudo docker logs bookmate-mysql --tail 20 || true' \
+                                'echo "✅ Deployment completed!"' \
+                            | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 ubuntu@${EC2_IP_TARGET} bash
+                            
+                            ssh-agent -k
+                        '''
+                    }
                 }
             }
         }
@@ -565,7 +580,7 @@ pipeline {
     post {
         success {
             echo '✅ Pipeline completed successfully!'
-            echo "🌐 Application deployed at: http://${env.EC2_IP}"
+            echo "🌐 Application deployed at: http://${env.EC2_IP_DEPLOY}"
         }
         failure {
             echo '❌ Pipeline failed!'
