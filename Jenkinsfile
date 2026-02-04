@@ -375,6 +375,11 @@ pipeline {
         AWS_REGION = 'us-east-1'
     }
 
+    parameters {
+        booleanParam(name: 'RUN_TERRAFORM', defaultValue: false, description: 'Create/Update infra with Terraform (disable for normal deploys)')
+        string(name: 'DEPLOY_INSTANCE_TAG', defaultValue: 'BookMate-App', description: 'EC2 Name tag to deploy to')
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -384,6 +389,9 @@ pipeline {
         }
 
         stage('Terraform Init & Plan') {
+            when {
+                expression { return params.RUN_TERRAFORM }
+            }
             steps {
                 dir('terraform') {
                     withCredentials([[$class: 'UsernamePasswordMultiBinding',
@@ -401,6 +409,9 @@ pipeline {
         }
 
         stage('Terraform Apply') {
+            when {
+                expression { return params.RUN_TERRAFORM }
+            }
             steps {
                 dir('terraform') {
                     withCredentials([[$class: 'UsernamePasswordMultiBinding',
@@ -417,21 +428,27 @@ pipeline {
 
         stage('Get EC2 IP') {
             steps {
-                dir('terraform') {
+                withCredentials([[$class: 'UsernamePasswordMultiBinding',
+                    credentialsId: 'aws-creds-id',
+                    usernameVariable: 'AWS_ACCESS_KEY_ID',
+                    passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     script {
-                        def elasticIp = sh(
-                            script: "terraform output -raw elastic_ip",
-                            returnStdout: true
-                        ).trim()
                         def publicIp = sh(
-                            script: "terraform output -raw public_ip",
+                            script: """
+                                aws ec2 describe-instances \
+                                  --region ${AWS_REGION} \
+                                  --filters 'Name=tag:Name,Values=${params.DEPLOY_INSTANCE_TAG}' 'Name=instance-state-name,Values=running' \
+                                  --query 'Reservations[0].Instances[0].PublicIpAddress' \
+                                  --output text
+                            """,
                             returnStdout: true
                         ).trim()
 
-                        // Use public IP for deployment to avoid stale EIP issues
+                        if (!publicIp || publicIp == 'None') {
+                            error("No running EC2 instance found with tag Name=${params.DEPLOY_INSTANCE_TAG}")
+                        }
+
                         env.EC2_IP = publicIp
-                        echo "Elastic IP (terraform): http://${elasticIp}"
-                        echo "Public IP (instance): http://${publicIp}"
                         echo "EC2 instance (deploy target): http://${env.EC2_IP}"
                     }
                 }
@@ -525,24 +542,10 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                script {
-                    // Get fresh IP from Terraform - run in bash to ensure proper execution
-                    def freshIP = sh(
-                        script: '''
-                            cd terraform
-                            terraform output -raw public_ip
-                        ''',
-                        returnStdout: true
-                    ).trim()
-                    
-                    env.DEPLOY_TARGET_IP = freshIP
-                    echo "🎯 Deploy Target IP: ${env.DEPLOY_TARGET_IP}"
-                }
-                
                 withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
                     sh '''
                         set -e
-                        TARGET_IP="${DEPLOY_TARGET_IP}"
+                        TARGET_IP="${EC2_IP}"
                         echo "Target IP from environment: $TARGET_IP"
                         
                         # Verify the IP is valid
@@ -588,7 +591,7 @@ pipeline {
     post {
         success {
             echo '✅ Pipeline completed successfully!'
-            echo "🌐 Application deployed at: http://${env.DEPLOY_TARGET_IP}"
+            echo "🌐 Application deployed at: http://${env.EC2_IP}"
         }
         failure {
             echo '❌ Pipeline failed!'
