@@ -125,18 +125,15 @@ resource "aws_instance" "bookmate" {
               chmod -R 755 /opt/bookmate
               chmod g+s /opt/bookmate
               
-              # Get the Elastic IP and start docker-compose
-              ELASTIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
-              export EC2_IP=$ELASTIC_IP
-              
-              # Start containers
+              # Start containers (using internal Docker network for API communication)
               cd /opt/bookmate
-              sudo -u ubuntu docker-compose up -d
+              docker-compose up -d
               
               # Wait for services to be ready
               sleep 15
               
-              # Log startup completion
+              # Get the Elastic IP for logging
+              ELASTIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
               echo "BookMate services started successfully at $ELASTIC_IP" >> /var/log/user-data.log
               EOF
 }
