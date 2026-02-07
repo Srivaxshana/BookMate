@@ -378,6 +378,7 @@ pipeline {
     parameters {
         booleanParam(name: 'RUN_TERRAFORM', defaultValue: false, description: 'Create/Update infra with Terraform (disable for normal deploys)')
         string(name: 'DEPLOY_INSTANCE_TAG', defaultValue: 'BookMate-App', description: 'EC2 Name tag to deploy to')
+        string(name: 'ELASTIC_IP', defaultValue: '', description: 'Optional: use this Elastic IP to find the instance (overrides tag lookup)')
     }
 
     stages {
@@ -443,16 +444,30 @@ pipeline {
                     usernameVariable: 'AWS_ACCESS_KEY_ID',
                     passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     script {
-                        def publicIp = sh(
-                            script: """
-                                aws ec2 describe-instances \
-                                  --region ${AWS_REGION} \
-                                  --filters 'Name=tag:Name,Values=${params.DEPLOY_INSTANCE_TAG}' 'Name=instance-state-name,Values=running' \
-                                  --query 'Reservations[0].Instances[0].PublicIpAddress' \
-                                  --output text
-                            """,
-                            returnStdout: true
-                        ).trim()
+                        def publicIp = ''
+                        if (params.ELASTIC_IP?.trim()) {
+                            echo "Looking up instance by Elastic IP: ${params.ELASTIC_IP}"
+                            def instanceId = sh(script: "aws ec2 describe-addresses --public-ips ${params.ELASTIC_IP} --region ${AWS_REGION} --query 'Addresses[0].InstanceId' --output text", returnStdout: true).trim()
+                            if (instanceId && instanceId != 'None') {
+                                echo "Found instance id ${instanceId} for Elastic IP ${params.ELASTIC_IP}"
+                                publicIp = sh(script: "aws ec2 describe-instances --instance-ids ${instanceId} --region ${AWS_REGION} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text", returnStdout: true).trim()
+                            } else {
+                                echo "No instance associated with Elastic IP ${params.ELASTIC_IP}; falling back to tag lookup"
+                            }
+                        }
+
+                        if (!publicIp) {
+                            publicIp = sh(
+                                script: """
+                                    aws ec2 describe-instances \
+                                      --region ${AWS_REGION} \
+                                      --filters 'Name=tag:Name,Values=${params.DEPLOY_INSTANCE_TAG}' 'Name=instance-state-name,Values=running' \
+                                      --query 'Reservations[0].Instances[0].PublicIpAddress' \
+                                      --output text
+                                """,
+                                returnStdout: true
+                            ).trim()
+                        }
 
                         if (!publicIp || publicIp == 'None') {
                             error("No running EC2 instance found with tag Name=${params.DEPLOY_INSTANCE_TAG}")
