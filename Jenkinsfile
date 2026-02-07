@@ -576,76 +576,93 @@ pipeline {
                             echo "ERROR: TARGET_IP is empty!"
                             exit 1
                         fi
-
-                        # Prepare deployment script payload (same commands for SSH or SSM)
-                        read -r -d '' DEPLOY_SCRIPT <<'EOD'
+                        
+                        echo "=== DEBUG: Checking required tools ==="
+                        which ssh || { echo "ERROR: ssh not found"; exit 1; }
+                        which ssh-add || { echo "ERROR: ssh-add not found"; exit 1; }
+                        
+                        echo "=== DEBUG: SSH Key info ==="
+                        ls -la "$SSH_KEY_FILE"
+                        chmod 600 "$SSH_KEY_FILE"
+                        
+                        echo "=== DEBUG: Testing SSH connection to $TARGET_IP ==="
+                        # Simple SSH test without nc dependency
+                        if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$SSH_KEY_FILE" ubuntu@"$TARGET_IP" 'echo "SSH TEST OK"' 2>&1; then
+                            echo "✅ SSH connectivity confirmed"
+                        else
+                            echo "❌ SSH test failed - check security group, key, and EC2 status"
+                            exit 1
+                        fi
+                        
+                        echo "=== Starting Deployment ==="
+                        ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ubuntu@"$TARGET_IP" <<'ENDSSH'
 set -e
-echo "Starting deployment..."
-cd /opt/bookmate || (sudo mkdir -p /opt/bookmate && sudo chown ubuntu:ubuntu /opt/bookmate && cd /opt/bookmate)
-if [ -d .git ]; then git pull origin main || (git fetch --all && git reset --hard origin/main); else git clone https://github.com/Srivaxshana/BookMate.git .; fi
+echo "Starting deployment on EC2..."
+
+# Ensure directory exists
+cd /opt/bookmate || {
+    sudo mkdir -p /opt/bookmate
+    sudo chown ubuntu:ubuntu /opt/bookmate
+    cd /opt/bookmate
+}
+
+# Update code from GitHub
+if [ -d .git ]; then
+    echo "Pulling latest code..."
+    git pull origin main || { git fetch --all && git reset --hard origin/main; }
+else
+    echo "Cloning repository..."
+    git clone https://github.com/Srivaxshana/BookMate.git .
+fi
+
+# Ensure ubuntu user is in docker group
 sudo usermod -aG docker ubuntu || true
+
+# Stop old containers
+echo "Stopping old containers..."
 sudo docker-compose down -v || true
+
+# Clean up old images
+echo "Cleaning up old Docker resources..."
 sudo docker system prune -af || true
+
+# Pull latest images
+echo "Pulling latest Docker images..."
 sudo docker pull srivaxshana/bookmate-backend:latest || true
 sudo docker pull srivaxshana/bookmate-frontend:latest || true
-export EC2_IP=${TARGET_IP}
+
+# Start services
+echo "Starting services with docker-compose..."
+export EC2_IP="${EC2_IP}"
 sudo -E docker-compose up -d
+
+# Wait for services to start
+echo "Waiting for services to start..."
 sleep 30
-sudo docker ps || true
-echo "=== Backend Logs ===" && sudo docker logs bookmate-backend --tail 20 || true
-echo "=== Frontend Logs ===" && sudo docker logs bookmate-frontend --tail 20 || true
-echo "=== MySQL Logs ===" && sudo docker logs bookmate-mysql --tail 20 || true
-echo "✅ Deployment completed!"
-EOD
 
-                        # Try SSH connectivity with retries
-                        eval $(ssh-agent -s)
-                        ssh-add $SSH_KEY_FILE
+# Show status
+echo "=== Docker Containers Status ==="
+sudo docker ps
 
-                        SSH_OK=0
-                        for i in $(seq 1 6); do
-                            echo "Attempt $i: testing SSH to $TARGET_IP..."
-                            if nc -z -w5 $TARGET_IP 22 2>/dev/null; then
-                                echo "Port 22 open, testing SSH command..."
-                                if ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=8 ubuntu@$TARGET_IP 'echo SSH_OK' 2>/dev/null | grep -q SSH_OK; then
-                                    SSH_OK=1
-                                    echo "SSH connectivity verified"
-                                    break
-                                fi
-                            fi
-                            echo "SSH not available yet, sleeping 10s"
-                            sleep 10
-                        done
+echo "=== Backend Logs ==="
+sudo docker logs bookmate-backend --tail 20 || true
 
-                        if [ "$SSH_OK" -eq 1 ]; then
-                            echo "Using SSH deploy path"
-                            printf '%s\n' "$DEPLOY_SCRIPT" | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${TARGET_IP} bash
+echo "=== Frontend Logs ==="
+sudo docker logs bookmate-frontend --tail 20 || true
+
+echo "=== MySQL Logs ==="
+sudo docker logs bookmate-mysql --tail 20 || true
+
+echo "✅ Deployment completed successfully!"
+ENDSSH
+                        
+                        EC2_EXIT_CODE=$?
+                        if [ $EC2_EXIT_CODE -eq 0 ]; then
+                            echo "✅ Deployment script finished successfully"
                         else
-                            echo "SSH unreachable; attempting SSM fallback"
-                            # discover instance id by tag
-                            INSTANCE_ID=$(aws ec2 describe-instances --region ${AWS_REGION} --filters "Name=tag:Name,Values=${params.DEPLOY_INSTANCE_TAG}" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].InstanceId" --output text)
-                            if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
-                                echo "Could not find instance id for tag ${params.DEPLOY_INSTANCE_TAG}; aborting"
-                                exit 2
-                            fi
-                            echo "Sending SSM command to instance $INSTANCE_ID"
-
-                            CMD_ID=$(aws ssm send-command --region ${AWS_REGION} --instance-ids "$INSTANCE_ID" --document-name "AWS-RunShellScript" --comment "Jenkins deploy fallback" --parameters commands[0]="$(echo "$DEPLOY_SCRIPT" | sed 's/"/\\"/g' | tr '\n' ';')" --query "Command.CommandId" --output text)
-                            echo "SSM CommandId: $CMD_ID"
-
-                            # Poll for invocation result and stream output
-                            for attempt in $(seq 1 30); do
-                                STATUS=$(aws ssm get-command-invocation --region ${AWS_REGION} --command-id $CMD_ID --instance-id $INSTANCE_ID --query 'Status' --output text 2>/dev/null || echo "Pending")
-                                echo "SSM status: $STATUS"
-                                if [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "TimedOut" ] || [ "$STATUS" = "Cancelled" ]; then
-                                    aws ssm get-command-invocation --region ${AWS_REGION} --command-id $CMD_ID --instance-id $INSTANCE_ID --query '{Status:Status,StandardOutput:StandardOutputContent,StandardError:StandardErrorContent}' --output json || true
-                                    break
-                                fi
-                                sleep 5
-                            done
+                            echo "❌ Deployment script failed with exit code $EC2_EXIT_CODE"
+                            exit $EC2_EXIT_CODE
                         fi
-
-                        ssh-agent -k || true
 BASH
                     '''
                 }
