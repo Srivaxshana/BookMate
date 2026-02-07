@@ -4,6 +4,7 @@ import com.bookmate.model.Book;
 import com.bookmate.model.Rating;
 import com.bookmate.repository.BookRepository;
 import com.bookmate.repository.RatingRepository;
+import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +24,7 @@ public class RatingController {
     private BookRepository bookRepository;
 
     @PostMapping
-    public ResponseEntity<Rating> addOrUpdateRating(@RequestBody Rating rating) {
+    public ResponseEntity<Rating> addOrUpdateRating(@NonNull @RequestBody Rating rating) {
         // Check if user already rated this book
         Optional<Rating> existingRating = ratingRepository.findByUserIdAndBookId(
                 rating.getUserId(),
@@ -49,18 +50,18 @@ public class RatingController {
     }
 
     @GetMapping("/book/{bookId}")
-    public List<Rating> getRatingsByBookId(@PathVariable Long bookId) {
+    public List<Rating> getRatingsByBookId(@NonNull @PathVariable Long bookId) {
         return ratingRepository.findByBookId(bookId);
     }
 
     @GetMapping("/user/{userId}/book/{bookId}")
-    public ResponseEntity<Rating> getUserRating(@PathVariable Long userId, @PathVariable Long bookId) {
+    public ResponseEntity<Rating> getUserRating(@NonNull @PathVariable Long userId, @NonNull @PathVariable Long bookId) {
         return ratingRepository.findByUserIdAndBookId(userId, bookId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    private void updateBookRating(Long bookId) {
+    private void updateBookRating(@NonNull Long bookId) {
         Double avgRating = ratingRepository.getAverageRatingByBookId(bookId);
         bookRepository.findById(bookId).ifPresent(book -> {
             book.setRating(avgRating != null ? avgRating : 0.0);

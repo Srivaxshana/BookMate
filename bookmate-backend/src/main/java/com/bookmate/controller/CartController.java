@@ -48,6 +48,7 @@ package com.bookmate.controller;
 
 import com.bookmate.model.Cart;
 import com.bookmate.repository.CartRepository;
+import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -64,12 +65,12 @@ public class CartController {
     private CartRepository cartRepository;
 
     @GetMapping("/{userId}")
-    public List<Cart> getCartByUserId(@PathVariable Long userId) {
+    public List<Cart> getCartByUserId(@NonNull @PathVariable Long userId) {
         return cartRepository.findByUserId(userId);
     }
 
     @PostMapping
-    public Cart addToCart(@RequestBody Cart cart) {
+    public Cart addToCart(@NonNull @RequestBody Cart cart) {
         // Check if item already exists in cart
         Optional<Cart> existingCart = cartRepository.findByUserIdAndBookId(cart.getUserId(), cart.getBookId());
 
@@ -85,7 +86,7 @@ public class CartController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Cart> updateCartQuantity(@PathVariable Long id, @RequestBody Cart cartDetails) {
+    public ResponseEntity<Cart> updateCartQuantity(@NonNull @PathVariable Long id, @NonNull @RequestBody Cart cartDetails) {
         return cartRepository.findById(id)
                 .map(cart -> {
                     cart.setQuantity(cartDetails.getQuantity());
@@ -95,7 +96,7 @@ public class CartController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> removeFromCart(@PathVariable Long id) {
+    public ResponseEntity<Void> removeFromCart(@NonNull @PathVariable Long id) {
         return cartRepository.findById(id)
                 .map(cart -> {
                     cartRepository.delete(cart);
@@ -105,7 +106,7 @@ public class CartController {
     }
 
     @DeleteMapping("/user/{userId}")
-    public ResponseEntity<Void> clearCart(@PathVariable Long userId) {
+    public ResponseEntity<Void> clearCart(@NonNull @PathVariable Long userId) {
         cartRepository.deleteByUserId(userId);
         return ResponseEntity.ok().build();
     }
