@@ -385,6 +385,16 @@ pipeline {
             steps {
                 echo 'Checking out from GitHub...'
                 checkout scm
+                                // Ensure repository-provided Maven settings are used by system Maven
+                                sh '''
+                                    if [ -f .mvn/settings.xml ]; then
+                                        mkdir -p $HOME/.m2
+                                        cp .mvn/settings.xml $HOME/.m2/settings.xml
+                                        echo "Copied .mvn/settings.xml -> $HOME/.m2/settings.xml"
+                                    else
+                                        echo "No .mvn/settings.xml found in repo; skipping copy"
+                                    fi
+                                '''
             }
         }
 
@@ -493,8 +503,7 @@ pipeline {
                             -v $PWD/.mvn/settings.xml:/root/.m2/settings.xml \
                             -w /app \
                             maven:3.9.4-eclipse-temurin-21 \
-                            mvn clean package \
-                            -s /root/.m2/settings.xml \
+                            mvn -B -U -s /root/.m2/settings.xml clean package \
                             -Dspring.datasource.url=jdbc:mysql://test-mysql:3306/bookmate_db \
                             -Dspring.datasource.username=bookmate \
                             -Dspring.datasource.password=bookmate123
@@ -544,44 +553,84 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
                     sh '''
-                        set -e
+                        set -euo pipefail
                         TARGET_IP="${EC2_IP}"
                         echo "Target IP from environment: $TARGET_IP"
-                        
-                        # Verify the IP is valid
+
                         if [ -z "$TARGET_IP" ]; then
                             echo "ERROR: TARGET_IP is empty!"
                             exit 1
                         fi
-                        
-                        # Use SSH agent for secure key handling
+
+                        # Prepare deployment script payload (same commands for SSH or SSM)
+                        read -r -d '' DEPLOY_SCRIPT <<'EOD'
+set -e
+echo "Starting deployment..."
+cd /opt/bookmate || (sudo mkdir -p /opt/bookmate && sudo chown ubuntu:ubuntu /opt/bookmate && cd /opt/bookmate)
+if [ -d .git ]; then git pull origin main || (git fetch --all && git reset --hard origin/main); else git clone https://github.com/Srivaxshana/BookMate.git .; fi
+sudo usermod -aG docker ubuntu || true
+sudo docker-compose down -v || true
+sudo docker system prune -af || true
+sudo docker pull srivaxshana/bookmate-backend:latest || true
+sudo docker pull srivaxshana/bookmate-frontend:latest || true
+export EC2_IP=${TARGET_IP}
+sudo -E docker-compose up -d
+sleep 30
+sudo docker ps || true
+echo "=== Backend Logs ===" && sudo docker logs bookmate-backend --tail 20 || true
+echo "=== Frontend Logs ===" && sudo docker logs bookmate-frontend --tail 20 || true
+echo "=== MySQL Logs ===" && sudo docker logs bookmate-mysql --tail 20 || true
+echo "✅ Deployment completed!"
+EOD
+
+                        # Try SSH connectivity with retries
                         eval $(ssh-agent -s)
                         ssh-add $SSH_KEY_FILE
-                        
-                        echo "🚀 Connecting to EC2 at: $TARGET_IP"
-                        
-                        # Use printf to safely pass script to SSH (avoids heredoc issues)
-                        printf '%s\n' \
-                            'set -e' \
-                            'echo "Starting deployment..."' \
-                            'cd /opt/bookmate || (sudo mkdir -p /opt/bookmate && sudo chown ubuntu:ubuntu /opt/bookmate && cd /opt/bookmate)' \
-                            'if [ -d .git ]; then git pull origin main || (git fetch --all && git reset --hard origin/main); else git clone https://github.com/Srivaxshana/BookMate.git .; fi' \
-                            'sudo usermod -aG docker ubuntu || true' \
-                            'sudo docker-compose down -v || true' \
-                            'sudo docker system prune -af || true' \
-                            'sudo docker pull srivaxshana/bookmate-backend:latest || true' \
-                            'sudo docker pull srivaxshana/bookmate-frontend:latest || true' \
-                            'export EC2_IP='$TARGET_IP \
-                            'sudo -E docker-compose up -d' \
-                            'sleep 30' \
-                            'sudo docker ps' \
-                            'echo "=== Backend Logs ===" && sudo docker logs bookmate-backend --tail 20 || true' \
-                            'echo "=== Frontend Logs ===" && sudo docker logs bookmate-frontend --tail 20 || true' \
-                            'echo "=== MySQL Logs ===" && sudo docker logs bookmate-mysql --tail 20 || true' \
-                            'echo "✅ Deployment completed!"' \
-                        | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 ubuntu@${TARGET_IP} bash
-                        
-                        ssh-agent -k
+
+                        SSH_OK=0
+                        for i in $(seq 1 6); do
+                            echo "Attempt $i: testing SSH to $TARGET_IP..."
+                            if nc -z -w5 $TARGET_IP 22 2>/dev/null; then
+                                echo "Port 22 open, testing SSH command..."
+                                if ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=8 ubuntu@$TARGET_IP 'echo SSH_OK' 2>/dev/null | grep -q SSH_OK; then
+                                    SSH_OK=1
+                                    echo "SSH connectivity verified"
+                                    break
+                                fi
+                            fi
+                            echo "SSH not available yet, sleeping 10s"
+                            sleep 10
+                        done
+
+                        if [ "$SSH_OK" -eq 1 ]; then
+                            echo "Using SSH deploy path"
+                            printf '%s\n' "$DEPLOY_SCRIPT" | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${TARGET_IP} bash
+                        else
+                            echo "SSH unreachable; attempting SSM fallback"
+                            # discover instance id by tag
+                            INSTANCE_ID=$(aws ec2 describe-instances --region ${AWS_REGION} --filters "Name=tag:Name,Values=${params.DEPLOY_INSTANCE_TAG}" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].InstanceId" --output text)
+                            if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
+                                echo "Could not find instance id for tag ${params.DEPLOY_INSTANCE_TAG}; aborting"
+                                exit 2
+                            fi
+                            echo "Sending SSM command to instance $INSTANCE_ID"
+
+                            CMD_ID=$(aws ssm send-command --region ${AWS_REGION} --instance-ids "$INSTANCE_ID" --document-name "AWS-RunShellScript" --comment "Jenkins deploy fallback" --parameters commands[0]="$(echo "$DEPLOY_SCRIPT" | sed 's/"/\\"/g' | tr '\n' ';')" --query "Command.CommandId" --output text)
+                            echo "SSM CommandId: $CMD_ID"
+
+                            # Poll for invocation result and stream output
+                            for attempt in $(seq 1 30); do
+                                STATUS=$(aws ssm get-command-invocation --region ${AWS_REGION} --command-id $CMD_ID --instance-id $INSTANCE_ID --query 'Status' --output text 2>/dev/null || echo "Pending")
+                                echo "SSM status: $STATUS"
+                                if [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "TimedOut" ] || [ "$STATUS" = "Cancelled" ]; then
+                                    aws ssm get-command-invocation --region ${AWS_REGION} --command-id $CMD_ID --instance-id $INSTANCE_ID --query '{Status:Status,StandardOutput:StandardOutputContent,StandardError:StandardErrorContent}' --output json || true
+                                    break
+                                fi
+                                sleep 5
+                            done
+                        fi
+
+                        ssh-agent -k || true
                     '''
                 }
             }
