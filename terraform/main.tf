@@ -79,7 +79,7 @@ resource "aws_instance" "bookmate" {
 
   # Prevent recreation - only update in place
   lifecycle {
-    ignore_changes = [ami, user_data]
+    ignore_changes = [ami]
   }
 
   user_data = <<-EOF
@@ -112,6 +112,20 @@ resource "aws_instance" "bookmate" {
               chown -R ubuntu:ubuntu /opt/bookmate
               chmod -R 755 /opt/bookmate
               chmod g+s /opt/bookmate
+              
+              # Get the Elastic IP and start docker-compose
+              ELASTIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+              export EC2_IP=$ELASTIC_IP
+              
+              # Start containers
+              cd /opt/bookmate
+              sudo -u ubuntu docker-compose up -d
+              
+              # Wait for services to be ready
+              sleep 15
+              
+              # Log startup completion
+              echo "BookMate services started successfully at $ELASTIC_IP" >> /var/log/user-data.log
               EOF
 }
 
