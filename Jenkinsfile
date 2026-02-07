@@ -552,7 +552,7 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
-                    sh '''
+                    sh '''bash -lc <<'BASH'
                         set -euo pipefail
                         TARGET_IP="${EC2_IP}"
                         echo "Target IP from environment: $TARGET_IP"
@@ -631,6 +631,7 @@ EOD
                         fi
 
                         ssh-agent -k || true
+BASH
                     '''
                 }
             }
