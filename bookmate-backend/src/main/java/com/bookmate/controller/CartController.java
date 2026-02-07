@@ -70,6 +70,7 @@ public class CartController {
     }
 
     @PostMapping
+    @SuppressWarnings("null")
     public Cart addToCart(@NonNull @RequestBody Cart cart) {
         // Check if item already exists in cart
         Optional<Cart> existingCart = cartRepository.findByUserIdAndBookId(cart.getUserId(), cart.getBookId());

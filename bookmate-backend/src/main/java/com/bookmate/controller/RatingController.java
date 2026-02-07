@@ -1,6 +1,5 @@
 package com.bookmate.controller;
 
-import com.bookmate.model.Book;
 import com.bookmate.model.Rating;
 import com.bookmate.repository.BookRepository;
 import com.bookmate.repository.RatingRepository;
