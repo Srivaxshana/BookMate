@@ -85,6 +85,18 @@ resource "aws_instance" "bookmate" {
   user_data = <<-EOF
               #!/bin/bash
               set -e
+              
+              # Wait for SSH daemon to be fully ready before proceeding
+              echo "Waiting for SSH daemon to be ready..."
+              for i in {1..60}; do
+                if systemctl is-active --quiet ssh; then
+                  echo "SSH daemon is active"
+                  break
+                fi
+                echo "Waiting for SSH... ($i/60)"
+                sleep 1
+              done
+              
               apt-get update -y
               apt-get install -y \
                 docker.io \

@@ -586,18 +586,18 @@ pipeline {
                         chmod 600 "$SSH_KEY_FILE"
                         
                         echo "=== DEBUG: Testing SSH connection to $TARGET_IP (with retry logic) ==="
-                        MAX_ATTEMPTS=10
+                        MAX_ATTEMPTS=20
                         ATTEMPT=1
                         SSH_SUCCESS=0
                         while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
                             echo "SSH connection attempt $ATTEMPT of $MAX_ATTEMPTS..."
-                            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i "$SSH_KEY_FILE" ubuntu@"$TARGET_IP" 'echo "SSH TEST OK"' 2>&1; then
+                            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$SSH_KEY_FILE" ubuntu@"$TARGET_IP" 'echo "SSH TEST OK"' 2>&1; then
                                 echo "✅ SSH connectivity confirmed on attempt $ATTEMPT"
                                 SSH_SUCCESS=1
                                 break
                             else
                                 if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
-                                    WAIT_TIME=$((ATTEMPT * 15))
+                                    WAIT_TIME=$((ATTEMPT * 20))
                                     echo "SSH connection failed, waiting ${WAIT_TIME}s before retry (EC2 still initializing)..."
                                     sleep $WAIT_TIME
                                 fi
