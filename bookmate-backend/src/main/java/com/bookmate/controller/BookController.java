@@ -31,7 +31,7 @@ public class BookController {
 
     @PostMapping
     @SuppressWarnings("null")
-    public Book createBook(@NonNull @RequestBody Book book) {
+    public @NonNull Book createBook(@NonNull @RequestBody Book book) {
         return bookRepository.save(book);
     }
 
