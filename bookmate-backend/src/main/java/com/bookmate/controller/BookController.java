@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/books")
@@ -32,7 +33,7 @@ public class BookController {
     @PostMapping
     @SuppressWarnings("null")
     public @NonNull Book createBook(@NonNull @RequestBody Book book) {
-        return bookRepository.save(book);
+        return Objects.requireNonNull(bookRepository.save(book));
     }
 
     @PutMapping("/{id}")

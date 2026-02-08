@@ -54,6 +54,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @RestController
@@ -79,10 +80,10 @@ public class CartController {
             // Update quantity if item exists
             Cart existing = existingCart.get();
             existing.setQuantity(existing.getQuantity() + cart.getQuantity());
-            return cartRepository.save(existing);
+            return Objects.requireNonNull(cartRepository.save(existing));
         } else {
             // Add new item if doesn't exist
-            return cartRepository.save(cart);
+            return Objects.requireNonNull(cartRepository.save(cart));
         }
     }
 
