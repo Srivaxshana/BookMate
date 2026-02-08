@@ -108,7 +108,7 @@ resource "aws_instance" "bookmate" {
               
               # Install Docker Compose V2 (supports healthcheck conditions)
               DOCKER_COMPOSE_VERSION="2.24.5"
-              curl -SL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+              curl -SL "https://github.com/docker/compose/releases/download/v$${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
               chmod +x /usr/local/bin/docker-compose
               ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
               
