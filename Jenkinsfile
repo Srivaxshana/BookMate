@@ -615,6 +615,22 @@ pipeline {
 set -e
 echo "Starting deployment on EC2..."
 
+# Upgrade Docker Compose to V2 if needed
+COMPOSE_VERSION=$(docker-compose --version 2>&1 | grep -oP '(?<=version )[0-9]+' | head -1 || echo "0")
+if [ "$COMPOSE_VERSION" -lt 2 ]; then
+    echo "Upgrading Docker Compose to V2..."
+    sudo rm -f /usr/bin/docker-compose /usr/local/bin/docker-compose
+    DOCKER_COMPOSE_VERSION="2.24.5"
+    sudo curl -SL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+    sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+    echo "Docker Compose upgraded to V2"
+    docker-compose --version
+else
+    echo "Docker Compose V2 already installed"
+    docker-compose --version
+fi
+
 # Ensure directory exists
 cd /opt/bookmate || {
     sudo mkdir -p /opt/bookmate
