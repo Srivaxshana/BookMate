@@ -98,6 +98,8 @@ services:
     container_name: bookmate-backend
     ports:
       - "8081:8080"
+    volumes:
+      - /mnt/app-data/backend:/app/logs
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bookmate_db
       SPRING_DATASOURCE_USERNAME: bookmate
@@ -118,12 +120,14 @@ services:
 
   frontend:
     image: srivaxshana/bookmate-frontend:latest
-    environment:
-      EC2_IP: ${EC2_IP}
-      REACT_APP_API_BASE_URL: http://bookmate-backend:8080
     container_name: bookmate-frontend
     ports:
       - "80:80"
+    volumes:
+      - /mnt/app-data/frontend:/var/log/nginx
+    environment:
+      EC2_IP: ${EC2_IP}
+      REACT_APP_API_BASE_URL: http://bookmate-backend:8080
     depends_on:
       backend:
         condition: service_healthy

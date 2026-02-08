@@ -118,47 +118,73 @@ resource "aws_instance" "bookmate" {
               # Wait for docker to be ready
               sleep 10
               
-              # Mount EBS volume for MySQL data persistence
-              echo "Setting up EBS volume for MySQL data..."
+              # Mount EBS volumes for data persistence
+              echo "Setting up EBS volumes..."
               
-              # Wait for volume to be attached (usually /dev/xvdf)
+              # Function to mount EBS volume
+              mount_ebs_volume() {
+                local device=$1
+                local mount_point=$2
+                local description=$3
+                
+                if [ -b "$device" ]; then
+                  mkdir -p "$mount_point"
+                  
+                  # Check if filesystem exists, if not create one
+                  if ! blkid "$device" 2>/dev/null; then
+                    echo "Creating filesystem on $device for $description..."
+                    mkfs.ext4 -F "$device"
+                  fi
+                  
+                  # Mount the volume
+                  mount "$device" "$mount_point"
+                  
+                  # Add to fstab for persistence
+                  echo "$device $mount_point ext4 defaults,nofail 0 2" >> /etc/fstab
+                  
+                  # Set permissions for docker
+                  chmod 755 "$mount_point"
+                  chown -R ubuntu:ubuntu "$mount_point"
+                  
+                  echo "EBS volume mounted successfully at $mount_point ($description)"
+                else
+                  echo "WARNING: $device not found for $description"
+                  mkdir -p "$mount_point"
+                  chmod 755 "$mount_point"
+                fi
+              }
+              
+              # Wait for volumes to be attached
+              echo "Waiting for volume attachments..."
               for i in {1..30}; do
-                if [ -b /dev/nvme1n1 ]; then
-                  VOLUME_DEVICE="/dev/nvme1n1"
-                  echo "Found NVMe volume at $VOLUME_DEVICE"
-                  break
-                elif [ -b /dev/xvdf ]; then
-                  VOLUME_DEVICE="/dev/xvdf"
-                  echo "Found volume at $VOLUME_DEVICE"
+                NVME1_FOUND=false
+                NVME2_FOUND=false
+                
+                [ -b /dev/nvme1n1 ] && NVME1_FOUND=true
+                [ -b /dev/nvme2n1 ] && NVME2_FOUND=true
+                [ -b /dev/xvdf ] && NVME1_FOUND=true
+                [ -b /dev/xvdg ] && NVME2_FOUND=true
+                
+                if [ "$NVME1_FOUND" = true ] && [ "$NVME2_FOUND" = true ]; then
+                  echo "Both volumes found"
                   break
                 fi
-                echo "Waiting for volume attachment... ($i/30)"
+                
+                echo "Waiting for volumes... ($i/30)"
                 sleep 1
               done
               
-              if [ -n "$VOLUME_DEVICE" ] && [ -b "$VOLUME_DEVICE" ]; then
-                # Create mount point
-                mkdir -p /mnt/mysql-data
-                
-                # Check if filesystem exists, if not create one
-                if ! sudo blkid "$VOLUME_DEVICE"; then
-                  echo "Creating filesystem on $VOLUME_DEVICE..."
-                  mkfs.ext4 -F "$VOLUME_DEVICE"
-                fi
-                
-                # Mount the volume
-                mount "$VOLUME_DEVICE" /mnt/mysql-data
-                
-                # Add to fstab for persistence
-                echo "$VOLUME_DEVICE /mnt/mysql-data ext4 defaults,nofail 0 2" >> /etc/fstab
-                
-                # Set permissions for docker
-                chmod 755 /mnt/mysql-data
-                
-                echo "EBS volume mounted successfully at /mnt/mysql-data"
-              else
-                echo "WARNING: EBS volume not found, MySQL data will use instance storage"
-                mkdir -p /mnt/mysql-data
+              # Determine actual device paths and mount them
+              if [ -b /dev/nvme1n1 ]; then
+                mount_ebs_volume "/dev/nvme1n1" "/mnt/mysql-data" "MySQL Data"
+              elif [ -b /dev/xvdf ]; then
+                mount_ebs_volume "/dev/xvdf" "/mnt/mysql-data" "MySQL Data"
+              fi
+              
+              if [ -b /dev/nvme2n1 ]; then
+                mount_ebs_volume "/dev/nvme2n1" "/mnt/app-data" "App Data (Backend/Frontend)"
+              elif [ -b /dev/xvdg ]; then
+                mount_ebs_volume "/dev/xvdg" "/mnt/app-data" "App Data (Backend/Frontend)"
               fi
               
               # Clone the repository
@@ -198,10 +224,31 @@ resource "aws_ebs_volume" "mysql_data" {
   }
 }
 
-# Attach EBS volume to EC2 instance
+# Attach EBS volume for MySQL to EC2 instance
 resource "aws_volume_attachment" "mysql_data" {
   device_name = "/dev/sdf"
   volume_id   = aws_ebs_volume.mysql_data.id
+  instance_id = aws_instance.bookmate.id
+  
+  depends_on = [aws_instance.bookmate]
+}
+
+# EBS Volume for App data (Frontend/Backend) persistence
+resource "aws_ebs_volume" "app_data" {
+  availability_zone = aws_instance.bookmate.availability_zone
+  size              = 30  # 30 GiB for app logs, cache, etc
+  type              = "gp2"
+  encrypted         = false
+  
+  tags = {
+    Name = "bookmate-app-data"
+  }
+}
+
+# Attach EBS volume for app data to EC2 instance
+resource "aws_volume_attachment" "app_data" {
+  device_name = "/dev/sdg"
+  volume_id   = aws_ebs_volume.app_data.id
   instance_id = aws_instance.bookmate.id
   
   depends_on = [aws_instance.bookmate]

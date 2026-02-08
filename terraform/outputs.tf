@@ -38,3 +38,18 @@ output "mysql_data_mount_point" {
   description = "Mount point path for MySQL data volume"
   value       = "/mnt/mysql-data"
 }
+
+output "app_data_volume_id" {
+  description = "EBS Volume ID for Frontend/Backend app data"
+  value       = aws_ebs_volume.app_data.id
+}
+
+output "app_data_volume_size" {
+  description = "Size of app data volume in GiB"
+  value       = aws_ebs_volume.app_data.size
+}
+
+output "app_data_mount_point" {
+  description = "Mount point path for Frontend/Backend app data volume"
+  value       = "/mnt/app-data"
+}
