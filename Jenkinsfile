@@ -495,9 +495,13 @@ pipeline {
                         }
 
                         env.EC2_IP = publicIp
-                        echo "EC2 instance (deploy target): http://${env.EC2_IP}"
-                        echo "EC2 instance id: ${instanceId}"
-                        echo "Elastic IP: ${elasticIp && elasticIp != 'None' ? elasticIp : 'none'}"
+                        echo "═══════════════════════════════════════"
+                        echo "    🎯 DEPLOYMENT TARGET IDENTIFIED 🎯"
+                        echo "═══════════════════════════════════════"
+                        echo "Elastic IP: ${elasticIp && elasticIp != 'None' ? elasticIp : 'NONE'}"
+                        echo "Instance ID: ${instanceId}"
+                        echo "Public IP: http://${env.EC2_IP}"
+                        echo "═══════════════════════════════════════"
                     }
                 }
             }
