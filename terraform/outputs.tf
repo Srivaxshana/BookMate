@@ -23,3 +23,18 @@ output "security_group_rules" {
   description = "Ingress rules for the Bookmate security group"
   value       = aws_security_group.bookmate_sg.ingress
 }
+
+output "mysql_data_volume_id" {
+  description = "EBS Volume ID for MySQL data persistence"
+  value       = aws_ebs_volume.mysql_data.id
+}
+
+output "mysql_data_volume_size" {
+  description = "Size of MySQL data volume in GiB"
+  value       = aws_ebs_volume.mysql_data.size
+}
+
+output "mysql_data_mount_point" {
+  description = "Mount point path for MySQL data volume"
+  value       = "/mnt/mysql-data"
+}

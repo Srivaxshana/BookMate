@@ -118,6 +118,49 @@ resource "aws_instance" "bookmate" {
               # Wait for docker to be ready
               sleep 10
               
+              # Mount EBS volume for MySQL data persistence
+              echo "Setting up EBS volume for MySQL data..."
+              
+              # Wait for volume to be attached (usually /dev/xvdf)
+              for i in {1..30}; do
+                if [ -b /dev/nvme1n1 ]; then
+                  VOLUME_DEVICE="/dev/nvme1n1"
+                  echo "Found NVMe volume at $VOLUME_DEVICE"
+                  break
+                elif [ -b /dev/xvdf ]; then
+                  VOLUME_DEVICE="/dev/xvdf"
+                  echo "Found volume at $VOLUME_DEVICE"
+                  break
+                fi
+                echo "Waiting for volume attachment... ($i/30)"
+                sleep 1
+              done
+              
+              if [ -n "$VOLUME_DEVICE" ] && [ -b "$VOLUME_DEVICE" ]; then
+                # Create mount point
+                mkdir -p /mnt/mysql-data
+                
+                # Check if filesystem exists, if not create one
+                if ! sudo blkid "$VOLUME_DEVICE"; then
+                  echo "Creating filesystem on $VOLUME_DEVICE..."
+                  mkfs.ext4 -F "$VOLUME_DEVICE"
+                fi
+                
+                # Mount the volume
+                mount "$VOLUME_DEVICE" /mnt/mysql-data
+                
+                # Add to fstab for persistence
+                echo "$VOLUME_DEVICE /mnt/mysql-data ext4 defaults,nofail 0 2" >> /etc/fstab
+                
+                # Set permissions for docker
+                chmod 755 /mnt/mysql-data
+                
+                echo "EBS volume mounted successfully at /mnt/mysql-data"
+              else
+                echo "WARNING: EBS volume not found, MySQL data will use instance storage"
+                mkdir -p /mnt/mysql-data
+              fi
+              
               # Clone the repository
               mkdir -p /opt/bookmate
               cd /opt/bookmate
@@ -143,6 +186,26 @@ resource "aws_instance" "bookmate" {
               EOF
 }
 
+# EBS Volume for MySQL data persistence
+resource "aws_ebs_volume" "mysql_data" {
+  availability_zone = aws_instance.bookmate.availability_zone
+  size              = 20  # 20 GiB for MySQL data
+  type              = "gp2"
+  encrypted         = false
+  
+  tags = {
+    Name = "bookmate-mysql-data"
+  }
+}
+
+# Attach EBS volume to EC2 instance
+resource "aws_volume_attachment" "mysql_data" {
+  device_name = "/dev/sdf"
+  volume_id   = aws_ebs_volume.mysql_data.id
+  instance_id = aws_instance.bookmate.id
+  
+  depends_on = [aws_instance.bookmate]
+}
 
 resource "aws_eip" "bookmate_eip" {
   instance = aws_instance.bookmate.id

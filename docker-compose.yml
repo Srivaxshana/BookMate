@@ -83,7 +83,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - mysql-data:/var/lib/mysql
+      - /mnt/mysql-data:/var/lib/mysql
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     networks:
       - bookmate-network
@@ -130,9 +130,4 @@ services:
     networks:
       - bookmate-network
 
-volumes:
-  mysql-data:
 
-networks:
-  bookmate-network:
-    driver: bridge
