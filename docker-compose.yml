@@ -69,7 +69,7 @@
 #     driver: bridge
 
 
-version: '3.3'
+version: '3.8'
 
 services:
   mysql:

@@ -100,12 +100,17 @@ resource "aws_instance" "bookmate" {
               apt-get update -y
               apt-get install -y \
                 docker.io \
-                docker-compose \
                 git \
                 curl \
                 wget
               systemctl start docker
               systemctl enable docker
+              
+              # Install Docker Compose V2 (supports healthcheck conditions)
+              DOCKER_COMPOSE_VERSION="2.24.5"
+              curl -SL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+              chmod +x /usr/local/bin/docker-compose
+              ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
               
               # Add ubuntu user to docker group
               usermod -aG docker ubuntu
