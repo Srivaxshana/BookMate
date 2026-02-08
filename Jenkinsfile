@@ -445,12 +445,15 @@ pipeline {
                     passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     script {
                         def publicIp = ''
+                        def instanceId = ''
+                        def elasticIp = ''
                         if (params.ELASTIC_IP?.trim()) {
                             echo "Looking up instance by Elastic IP: ${params.ELASTIC_IP}"
-                            def instanceId = sh(script: "aws ec2 describe-addresses --public-ips ${params.ELASTIC_IP} --region ${AWS_REGION} --query 'Addresses[0].InstanceId' --output text", returnStdout: true).trim()
+                            instanceId = sh(script: "aws ec2 describe-addresses --public-ips ${params.ELASTIC_IP} --region ${AWS_REGION} --query 'Addresses[0].InstanceId' --output text", returnStdout: true).trim()
                             if (instanceId && instanceId != 'None') {
                                 echo "Found instance id ${instanceId} for Elastic IP ${params.ELASTIC_IP}"
                                 publicIp = sh(script: "aws ec2 describe-instances --instance-ids ${instanceId} --region ${AWS_REGION} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text", returnStdout: true).trim()
+                                elasticIp = params.ELASTIC_IP.trim()
                             } else {
                                 echo "No instance associated with Elastic IP ${params.ELASTIC_IP}; falling back to tag lookup"
                             }
@@ -467,14 +470,34 @@ pipeline {
                                 """,
                                 returnStdout: true
                             ).trim()
+                            instanceId = sh(
+                                script: """
+                                    aws ec2 describe-instances \
+                                      --region ${AWS_REGION} \
+                                      --filters 'Name=tag:Name,Values=${params.DEPLOY_INSTANCE_TAG}' 'Name=instance-state-name,Values=running' \
+                                      --query 'Reservations[0].Instances[0].InstanceId' \
+                                      --output text
+                                """,
+                                returnStdout: true
+                            ).trim()
                         }
 
                         if (!publicIp || publicIp == 'None') {
                             error("No running EC2 instance found with tag Name=${params.DEPLOY_INSTANCE_TAG}")
                         }
 
+                        if (!instanceId || instanceId == 'None') {
+                            instanceId = sh(script: "aws ec2 describe-instances --region ${AWS_REGION} --filters Name=ip-address,Values=${publicIp} --query 'Reservations[0].Instances[0].InstanceId' --output text", returnStdout: true).trim()
+                        }
+
+                        if (!elasticIp) {
+                            elasticIp = sh(script: "aws ec2 describe-addresses --region ${AWS_REGION} --filters Name=instance-id,Values=${instanceId} --query 'Addresses[0].PublicIp' --output text", returnStdout: true).trim()
+                        }
+
                         env.EC2_IP = publicIp
                         echo "EC2 instance (deploy target): http://${env.EC2_IP}"
+                        echo "EC2 instance id: ${instanceId}"
+                        echo "Elastic IP: ${elasticIp && elasticIp != 'None' ? elasticIp : 'none'}"
                     }
                 }
             }
