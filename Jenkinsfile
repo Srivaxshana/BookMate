@@ -652,9 +652,31 @@ echo "Starting services with docker-compose..."
 export EC2_IP="${EC2_IP}"
 sudo -E docker-compose up -d
 
-# Wait for services to start
-echo "Waiting for services to start..."
-sleep 30
+# Wait for services to start with progress logs
+echo "Waiting for services to start (up to 120s)..."
+MAX_WAIT=120
+INTERVAL=10
+ELAPSED=0
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+    echo "Progress: ${ELAPSED}s"
+    sudo docker ps
+    MYSQL_HEALTH=$(sudo docker inspect --format='{{.State.Health.Status}}' bookmate-mysql 2>/dev/null || echo "unknown")
+    echo "MySQL health: $MYSQL_HEALTH"
+
+    if command -v curl >/dev/null 2>&1; then
+        if curl -fsS http://localhost:8081/actuator/health >/dev/null; then
+            echo "Backend health OK"
+            break
+        else
+            echo "Backend not ready yet"
+        fi
+    else
+        echo "curl not found; skipping backend health check"
+    fi
+
+    sleep $INTERVAL
+    ELAPSED=$((ELAPSED + INTERVAL))
+done
 
 # Show status
 echo "=== Docker Containers Status ==="
