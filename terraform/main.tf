@@ -77,9 +77,9 @@ resource "aws_instance" "bookmate" {
     Owner       = "Sri"
   }
 
-  # Prevent recreation - only update in place
+  # Prevent recreation - keep instance stable across deploys
   lifecycle {
-    ignore_changes = [ami]
+    ignore_changes = [ami, user_data]
   }
 
   user_data = <<-EOF
@@ -259,10 +259,9 @@ resource "aws_eip" "bookmate_eip" {
   
   depends_on = [aws_instance.bookmate]
   
-  # Prevent recreation - keep the same EIP
+  # Keep the same EIP across applies (avoid accidental replacement)
   lifecycle {
-    prevent_destroy = false
-    create_before_destroy = true
+    prevent_destroy = true
   }
   
   tags = {
