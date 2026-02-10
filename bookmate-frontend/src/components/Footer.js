@@ -94,7 +94,7 @@ const Footer = () => {
           <div className="col-md-4 mb-3">
             <h5>Contact</h5>
             <p>info@bookmate.com</p>
-            <p>+1 (555) 123-4567</p>
+            <p>+94 (11) 123-4567</p>
             <p>123 Book Street, NYC</p>
           </div>
         </div>
