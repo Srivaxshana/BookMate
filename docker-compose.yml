@@ -104,8 +104,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bookmate_db
       SPRING_DATASOURCE_USERNAME: bookmate
       SPRING_DATASOURCE_PASSWORD: bookmate123
-      FRONTEND_URL: ${EC2_IP:=localhost}
-      EC2_IP: ${EC2_IP:=localhost}
+      FRONTEND_URL: ${EC2_IP:-localhost}
+      EC2_IP: ${EC2_IP:-localhost}
     depends_on:
       mysql:
         condition: service_healthy
