@@ -5,9 +5,7 @@ WORKDIR /workspace
 
 COPY . .
 
-RUN apk add --no-cache dos2unix && \
-    dos2unix mvnw && \
-    chmod +x mvnw && \
+RUN chmod +x mvnw && \
     ./mvnw clean package -DskipTests -q
 
 # Runtime stage
