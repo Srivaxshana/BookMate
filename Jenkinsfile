@@ -631,6 +631,9 @@ pipeline {
                         
                         echo "=== DEBUG: Checking SSH connectivity ==="
                         chmod 600 "$SSH_KEY_FILE"
+                        mkdir -p "$HOME/.ssh"
+                        ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$TARGET_IP" || true
+                        ssh-keyscan -H "$TARGET_IP" >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
                         
                         MAX_ATTEMPTS=20
                         ATTEMPT=1
@@ -693,7 +696,6 @@ echo "=== APPLICATION AVAILABILITY ==="
 echo "Checking if backend is responding..."
 sudo docker exec bookmate-backend curl -s http://localhost:8080/actuator/health || echo "Backend not responding"
 FINALCHECK
-BASH
                     '''
                 }
             }
