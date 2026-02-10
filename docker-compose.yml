@@ -104,12 +104,19 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bookmate_db
       SPRING_DATASOURCE_USERNAME: bookmate
       SPRING_DATASOURCE_PASSWORD: bookmate123
-      FRONTEND_URL: ${EC2_IP}
+      FRONTEND_URL: ${EC2_IP:=localhost}
+      EC2_IP: ${EC2_IP:=localhost}
     depends_on:
       mysql:
         condition: service_healthy
     networks:
       - bookmate-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
     restart: unless-stopped
 
   frontend:
