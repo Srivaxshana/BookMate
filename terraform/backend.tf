@@ -3,10 +3,10 @@
 
 terraform {
   backend "s3" {
-    bucket         = "bookmate-terraform-state"
-    key            = "bookmate/terraform.tfstate"
-    region         = "ap-south-1"
-    encrypt        = true
-    dynamodb_table = "bookmate-terraform-locks"
+    bucket      = "bookmate-terraform-state"
+    key         = "bookmate/terraform.tfstate"
+    region      = "ap-south-1"
+    encrypt     = true
+    use_lockfile = true
   }
 }
