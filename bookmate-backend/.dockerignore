@@ -2,5 +2,4 @@
 .gitignore
 *.log
 .mvn/
-mvnw
-mvnw.cmd
+
