@@ -411,6 +411,8 @@ pipeline {
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
                             # Use existing system terraform (non-interactive for CI)
+                            rm -rf .terraform
+                            rm -f terraform.tfstate terraform.tfstate.backup
                             terraform init -reconfigure -input=false
                             terraform plan -out=tfplan
                         '''
