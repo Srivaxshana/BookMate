@@ -17,3 +17,6 @@ terraform.rc
 # OS
 .DS_Store
 *.exe
+
+# Stray artifacts from interrupted terminal commands
+l bash -c*
