@@ -66,7 +66,7 @@ resource "aws_security_group" "bookmate_sg" {
 
 resource "aws_instance" "bookmate" {
   ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t3.micro"
+  instance_type          = "t3.small"
   associate_public_ip_address = true
   vpc_security_group_ids = [aws_security_group.bookmate_sg.id]
   key_name               = var.key_name
@@ -254,21 +254,16 @@ resource "aws_volume_attachment" "app_data" {
   depends_on = [aws_instance.bookmate]
 }
 
-resource "aws_eip" "bookmate_eip" {
-  instance = aws_instance.bookmate.id
+# Using existing Elastic IP: 52.205.189.191 (eipalloc-0fe2a0f8314d0c4b5)
+# Import with: terraform import aws_eip.bookmate_eip eipalloc-0fe2a0f8314d0c4b5
+resource "aws_eip_association" "bookmate_eip_assoc" {
+  instance_id   = aws_instance.bookmate.id
+  allocation_id = "eipalloc-0fe2a0f8314d0c4b5"  # 52.205.189.191
   
   depends_on = [aws_instance.bookmate]
-  
-  # Keep the same EIP across applies (avoid accidental replacement)
-  lifecycle {
-    prevent_destroy = true
-  }
-  
-  tags = {
-    Name = "bookmate-eip"
-  }
 }
 
-output "elastic_ip" {
-  value = aws_eip.bookmate_eip.public_ip
+# Data source to reference the existing EIP for outputs
+data "aws_eip" "bookmate_eip" {
+  id = "eipalloc-0fe2a0f8314d0c4b5"
 }

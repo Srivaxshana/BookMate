@@ -53,3 +53,8 @@ output "app_data_mount_point" {
   description = "Mount point path for Frontend/Backend app data volume"
   value       = "/mnt/app-data"
 }
+
+output "elastic_ip" {
+  description = "Elastic IP address (use this for accessing the application)"
+  value       = data.aws_eip.bookmate_eip.public_ip
+}

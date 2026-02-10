@@ -444,19 +444,19 @@ pipeline {
                     usernameVariable: 'AWS_ACCESS_KEY_ID',
                     passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     script {
+                        // Fixed Elastic IP and Instance ID from Terraform
+                        def elasticIp = '52.203.189.191'
+                        def instanceId = 'i-03f436fbd16f9fc37'
                         def publicIp = ''
-                        def instanceId = ''
-                        def elasticIp = ''
+                        
+                        echo "Using fixed Elastic IP: ${elasticIp}"
+                        echo "Using fixed Instance ID: ${instanceId}"
+                        
+                        // Verify instance is running
+                        publicIp = sh(script: "aws ec2 describe-instances --instance-ids ${instanceId} --region ${AWS_REGION} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text", returnStdout: true).trim()
+                        
                         if (params.ELASTIC_IP?.trim()) {
-                            echo "Looking up instance by Elastic IP: ${params.ELASTIC_IP}"
-                            instanceId = sh(script: "aws ec2 describe-addresses --public-ips ${params.ELASTIC_IP} --region ${AWS_REGION} --query 'Addresses[0].InstanceId' --output text", returnStdout: true).trim()
-                            if (instanceId && instanceId != 'None') {
-                                echo "Found instance id ${instanceId} for Elastic IP ${params.ELASTIC_IP}"
-                                publicIp = sh(script: "aws ec2 describe-instances --instance-ids ${instanceId} --region ${AWS_REGION} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text", returnStdout: true).trim()
-                                elasticIp = params.ELASTIC_IP.trim()
-                            } else {
-                                echo "No instance associated with Elastic IP ${params.ELASTIC_IP}; falling back to tag lookup"
-                            }
+                            echo "INFO: ELASTIC_IP parameter ignored - using fixed IP ${elasticIp}"
                         }
 
                         if (!publicIp) {
