@@ -410,8 +410,8 @@ pipeline {
                         usernameVariable: 'AWS_ACCESS_KEY_ID',
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            # Use existing system terraform
-                            terraform init
+                            # Use existing system terraform (non-interactive for CI)
+                            terraform init -reconfigure -input=false
                             terraform plan -out=tfplan
                         '''
                     }
