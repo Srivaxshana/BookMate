@@ -94,7 +94,9 @@ services:
       retries: 5
 
   backend:
-    image: srivaxshana/bookmate-backend:latest
+    build:
+      context: ./bookmate-backend
+      dockerfile: Dockerfile
     container_name: bookmate-backend
     ports:
       - "8081:8080"
