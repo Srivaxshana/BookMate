@@ -1,0 +1,138 @@
+pipeline {
+  agent any
+
+  environment {
+    DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+    DOCKERHUB_USERNAME = 'srivaxshana'
+    EC2_IP = '52.203.189.191'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        echo '📦 Checking out code from GitHub...'
+        checkout scm
+      }
+    }
+
+    stage('Build Docker Images') {
+      steps {
+        sh '''
+          set -e
+          echo "🐳 Building Docker images..."
+          docker build -t ${DOCKERHUB_USERNAME}/bookmate-backend:${BUILD_NUMBER} ./bookmate-backend
+          docker build -t ${DOCKERHUB_USERNAME}/bookmate-backend:latest ./bookmate-backend
+          docker build -t ${DOCKERHUB_USERNAME}/bookmate-frontend:${BUILD_NUMBER} ./bookmate-frontend
+          docker build -t ${DOCKERHUB_USERNAME}/bookmate-frontend:latest ./bookmate-frontend
+          echo "✅ Images built successfully"
+        '''
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        sh '''
+          set -e
+          echo "📤 Logging into Docker Hub..."
+          echo "$DOCKERHUB_CREDENTIALS_PSW" | docker login -u "$DOCKERHUB_CREDENTIALS_USR" --password-stdin
+          
+          echo "📤 Pushing images to Docker Hub..."
+          docker push ${DOCKERHUB_USERNAME}/bookmate-backend:${BUILD_NUMBER}
+          docker push ${DOCKERHUB_USERNAME}/bookmate-backend:latest
+          docker push ${DOCKERHUB_USERNAME}/bookmate-frontend:${BUILD_NUMBER}
+          docker push ${DOCKERHUB_USERNAME}/bookmate-frontend:latest
+          
+          echo "🔐 Logging out from Docker Hub..."
+          docker logout
+          echo "✅ Images pushed successfully"
+        '''
+      }
+    }
+
+    stage('Deploy to EC2') {
+      steps {
+        withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE', usernameVariable: 'SSH_USER')]) {
+          sh '''
+            set -e
+            TARGET_IP="${EC2_IP}"
+            
+            echo ""
+            echo "╔════════════════════════════════════════════════════════════╗"
+            echo "║          🚀 DEPLOYING TO EC2: ${TARGET_IP}                 ║"
+            echo "╚════════════════════════════════════════════════════════════╝"
+            echo ""
+            
+            if [ -z "$TARGET_IP" ]; then
+              echo "❌ ERROR: TARGET_IP is empty!"
+              exit 1
+            fi
+            
+            # Setup SSH
+            echo "=== SSH Configuration ==="
+            chmod 600 "$SSH_KEY_FILE"
+            mkdir -p "$HOME/.ssh"
+            ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$TARGET_IP" 2>/dev/null || true
+            ssh-keyscan -H "$TARGET_IP" >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
+            echo "✅ SSH configured"
+            echo ""
+            
+            # Test SSH connectivity with retries
+            echo "=== Testing SSH Connection ==="
+            MAX_ATTEMPTS=5
+            ATTEMPT=1
+            while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+              if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$SSH_KEY_FILE" ${SSH_USER}@"$TARGET_IP" 'echo SSH_OK' 2>&1; then
+                echo "✅ SSH connection successful"
+                break
+              fi
+              if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+                echo "⏳ Attempt $ATTEMPT failed, retrying in 15 seconds..."
+                sleep 15
+              fi
+              ATTEMPT=$((ATTEMPT + 1))
+            done
+            echo ""
+            
+            # Copy deployment script
+            echo "=== Copying Deployment Script ==="
+            scp -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" deploy-optimized.sh ${SSH_USER}@"$TARGET_IP":/tmp/deploy.sh
+            echo "✅ Script copied"
+            echo ""
+            
+            # Execute deployment script
+            echo "=== Executing Deployment on EC2 ==="
+            ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ${SSH_USER}@"$TARGET_IP" "bash /tmp/deploy.sh"
+            echo ""
+            
+            # Verify deployment
+            echo "=== Final Status Check ==="
+            ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ${SSH_USER}@"$TARGET_IP" << 'FINALCHECK'
+echo "Running Docker containers:"
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+echo ""
+echo "Application URLs:"
+echo "  Frontend: http://52.203.189.191:80"
+echo "  Backend API: http://52.203.189.191:8081/api"
+echo "  Backend Health: http://52.203.189.191:8081/actuator/health"
+FINALCHECK
+            
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo ''
+      echo "✅ PIPELINE SUCCESSFUL!"
+      echo "🌐 Access your application at: http://52.203.189.191"
+      echo "📊 Backend API: http://52.203.189.191:8081/api"
+    }
+    failure {
+      echo ''
+      echo "❌ PIPELINE FAILED!"
+      echo "Check Jenkins console output for details."
+    }
+  }
+}
