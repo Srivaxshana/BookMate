@@ -97,6 +97,19 @@ sudo docker system prune -af 2>&1 || true
 echo "✅ Cleanup complete"
 echo ""
 
+# Fix volume permissions to prevent MySQL errors
+echo "=== FIXING VOLUME PERMISSIONS ==="
+echo "Cleaning MySQL volume..."
+sudo rm -rf /mnt/mysql-data/backend /mnt/mysql-data/frontend /mnt/mysql-data/lost+found 2>/dev/null || true
+echo "Setting MySQL volume permissions..."
+sudo chown -R 999:999 /mnt/mysql-data
+sudo chmod 755 /mnt/mysql-data
+echo "Setting app data permissions..."
+sudo chown -R 1000:1000 /mnt/app-data
+sudo chmod 755 /mnt/app-data
+echo "✅ Volume permissions fixed"
+echo ""
+
 # Pull latest images
 echo "=== PULLING LATEST IMAGES FROM DOCKER HUB ==="
 echo "Pulling backend image..."
