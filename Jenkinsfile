@@ -610,7 +610,7 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE', usernameVariable: 'SSH_USER')]) {
                     sh '''
                         set -e
                         TARGET_IP="${EC2_IP}"
@@ -640,7 +640,7 @@ pipeline {
                         SSH_SUCCESS=0
                         while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
                             echo "SSH connection attempt $ATTEMPT of $MAX_ATTEMPTS..."
-                            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$SSH_KEY_FILE" ubuntu@"$TARGET_IP" 'echo "SSH TEST OK"' 2>&1; then
+                            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$SSH_KEY_FILE" ${SSH_USER}@"$TARGET_IP" 'echo "SSH TEST OK"' 2>&1; then
                                 echo "✅ SSH connectivity confirmed on attempt $ATTEMPT"
                                 SSH_SUCCESS=1
                                 break
@@ -661,15 +661,15 @@ pipeline {
                         
                         echo ""
                         echo "=== Copying deployment script to EC2 ==="
-                        scp -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" deploy.sh ubuntu@"$TARGET_IP":/tmp/deploy.sh
+                        scp -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" deploy.sh ${SSH_USER}@"$TARGET_IP":/tmp/deploy.sh
                         
                         echo ""
                         echo "=== Executing deployment script on EC2 ==="
-                        ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ubuntu@"$TARGET_IP" "bash /tmp/deploy.sh 2>&1 | tee /tmp/deploy.log"
+                        ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ${SSH_USER}@"$TARGET_IP" "bash /tmp/deploy.sh 2>&1 | tee /tmp/deploy.log"
                         
                         echo ""
                         echo "=== Retrieving deployment logs ==="
-                        scp -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ubuntu@"$TARGET_IP":/tmp/deploy.log ./ec2-deploy.log || echo "Warning: Could not retrieve logs"
+                        scp -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ${SSH_USER}@"$TARGET_IP":/tmp/deploy.log ./ec2-deploy.log || echo "Warning: Could not retrieve logs"
                         
                         if [ -f ./ec2-deploy.log ]; then
                             echo "✅ Deployment logs retrieved from EC2"
@@ -683,7 +683,7 @@ pipeline {
                         
                         echo ""
                         echo "=== FINAL STATUS CHECK ==="
-                        ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ubuntu@"$TARGET_IP" << 'FINALCHECK'
+                        ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ${SSH_USER}@"$TARGET_IP" << 'FINALCHECK'
 echo "Verifying deployment..."
 echo ""
 echo "=== RUNNING CONTAINERS ==="

@@ -26,7 +26,7 @@ const About = () => {
             <div className="col-md-6">
               <h2 className="mb-4">Our Story</h2>
               <p className="text-muted">
-                Founded in 2020, BookMate began with a simple mission: to connect readers 
+                Founded in 2025, BookMate began with a simple mission: to connect readers 
                 with the books they love. What started as a small online bookstore has grown 
                 into a thriving community of book lovers.
               </p>

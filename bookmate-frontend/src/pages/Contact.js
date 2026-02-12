@@ -46,7 +46,7 @@ const Contact = () => {
               <div className="contact-info-card text-center p-4">
                 <FaPhone size={40} className="mb-3 text-primary" />
                 <h5>Call Us</h5>
-                <p className="text-muted mb-0">+1 (555) 123-4567</p>
+                <p className="text-muted mb-0">+94 (77) 123-4567</p>
                 <p className="text-muted">Mon-Fri 9am-6pm</p>
               </div>
             </div>
@@ -62,8 +62,8 @@ const Contact = () => {
               <div className="contact-info-card text-center p-4">
                 <FaMapMarkerAlt size={40} className="mb-3 text-danger" />
                 <h5>Visit Us</h5>
-                <p className="text-muted mb-0">123 Book Street</p>
-                <p className="text-muted">New York, NY 10001</p>
+                <p className="text-muted mb-0">123 Brown Road</p>
+                <p className="text-muted">Jaffna, Sri Lanka</p>
               </div>
             </div>
             <div className="col-md-3 col-sm-6 mb-4">
@@ -96,7 +96,7 @@ const Contact = () => {
                           name="name"
                           value={formData.name}
                           onChange={handleChange}
-                          placeholder="John Doe"
+                          placeholder="Sri Vaxshana"
                           required
                         />
                       </div>
@@ -108,7 +108,7 @@ const Contact = () => {
                           name="email"
                           value={formData.email}
                           onChange={handleChange}
-                          placeholder="john@example.com"
+                          placeholder="sri@gmail.com"
                           required
                         />
                       </div>
