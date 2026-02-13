@@ -95,7 +95,7 @@ const Footer = () => {
             <h5>Contact</h5>
             <p>info@bookmate.com</p>
             <p>+94 (77) 123-4567</p>
-            <p>124 Brown Road,Jaffna, Sri Lanka</p>
+            <p>24 Brown Road,Jaffna, Sri Lanka</p>
           </div>
         </div>
         <hr style={{ borderColor: 'rgba(255,255,255,0.3)' }} />

@@ -62,7 +62,7 @@ const Contact = () => {
               <div className="contact-info-card text-center p-4">
                 <FaMapMarkerAlt size={40} className="mb-3 text-danger" />
                 <h5>Visit Us</h5>
-                <p className="text-muted mb-0">123 Brown Road</p>
+                <p className="text-muted mb-0">24 Brown Road</p>
                 <p className="text-muted">Jaffna, Sri Lanka</p>
               </div>
             </div>
