@@ -383,7 +383,7 @@ const Home = () => {
       {/* About Us Section */}
       <section id="about" className="py-5 bg-light">
         <div className="container">
-          <h2 className="text-center mb-5">About BookMate</h2>
+          <h2 className="text-center mb-5">About BookMate Details</h2>
           
           {/* Features */}
           <div className="row mb-5">
